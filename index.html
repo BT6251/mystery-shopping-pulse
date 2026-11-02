@@ -216,6 +216,128 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   window.PULSE_DESKTOP = { setKey: async (k) => { try { k = String(k || '').trim(); if (k) localStorage.setItem(KEY, k); else localStorage.removeItem(KEY); } catch (e) {} }, hasKey: async () => !!getKey() };
 })();
 </script>
+<script>/* Free on-device AI: when no API key is set, Ask AI runs a small open model (Llama 3.2 3B)
+   inside the browser with WebGPU. One-time download (~1.8 GB), cached by the browser;
+   questions and data never leave the device. */
+(() => {
+  const LIB = /^https?:$/.test(location.protocol) ? new URL('web-llm.js', location.href).href : 'https://esm.run/@mlc-ai/web-llm@0.2.85';
+  const MODEL = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+  const OK_KEY = 'pulse-ai-local';
+  const hasGPU = !!navigator.gpu;
+  let gpuP = null;
+  const gpuOK = () => (gpuP = gpuP || (async () => { try { return !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (e) { return false; } })());
+  const consented = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch (e) { return false; } };
+  let engine = null, loading = null, lib = null;
+  const fail = (code, text) => { const e = new Error(code); e.code = code; if (text) e.text = text; return e; };
+  const statusEl = () => document.getElementById('ai-status');
+  const say = (t) => { const s = statusEl(); if (s) s.textContent = t || ''; const p = document.getElementById('ai-local-progress'); if (p) p.textContent = t || ''; };
+
+  async function getEngine() {
+    if (engine) return engine;
+    if (!loading) {
+      loading = (async () => {
+        say('Loading the AI library…');
+        lib = lib || await import(LIB);
+        let cached = false; try { cached = await lib.hasModelInCache(MODEL); } catch (e) { /* ignore */ }
+        say(cached ? 'Starting the AI model…' : 'Downloading the AI model (about 1.8 GB, first time only)…');
+        engine = await lib.CreateMLCEngine(MODEL, {
+          initProgressCallback: (r) => { const pct = Math.round((r.progress || 0) * 100); say((cached ? 'Starting the AI model… ' : 'Downloading the AI model, first time only… ') + pct + '%'); },
+        }, { context_window_size: 8192 });
+        say('');
+        return engine;
+      })().catch((e) => { loading = null; engine = null; say(''); throw e; });
+    }
+    return loading;
+  }
+
+  /* compact the page's data summary into short lines a small model reads well */
+  const n1 = (v) => (v === null || v === undefined ? '—' : Math.round(v * 10) / 10);
+  const ch = (a, b) => (a == null || b == null ? '' : ` (${a - b >= 0 ? '+' : ''}${n1(a - b)})`);
+  function compact(d) {
+    const L = [];
+    L.push(`Mystery shopping round ${d.round} vs ${d.previous_round}. Complaint quarter ${d.complaint_quarter}. Score bands: ${d.score_bands}.`);
+    const o = d.overall || {};
+    L.push(`Overall score ${n1(o.score)}${ch(o.score, o.prev)} from ${o.shops} shops. Solved first time ${n1(o.first_contact_resolution_pct)}% (was ${n1(o.prev_fcr_pct)}%).`);
+    L.push('Score by channel: ' + (d.touchpoints || []).map((t) => `${t.touchpoint} ${n1(t.score)}${ch(t.score, t.prev)}, wait ${n1(t.avg_wait_min)} min`).join('; ') + '.');
+    L.push('Stages: ' + (d.stages || []).map((s) => `${s.stage} ${n1(s.score)}${ch(s.score, s.prev)}`).join('; ') + '.');
+    L.push('Regions: ' + (d.regions || []).map((r) => `${r.region} ${n1(r.score)}${ch(r.score, r.prev)}`).join('; ') + '.');
+    L.push('Store score by city, lowest first: ' + (d.cities || []).map((c) => `${c.city} ${n1(c.store_score)}${ch(c.store_score, c.prev)}`).join('; ') + '.');
+    L.push('Top fracture points (share of shops where it happened): ' + (d.top_fracture_points || []).slice(0, 10).map((f) => `${f.fracture} [${f.touchpoint}] ${n1(f.fail_rate_pct)}% (was ${n1(f.prev_pct)}%), owner ${f.owner}`).join('; ') + '.');
+    const c = d.complaints || {};
+    L.push(`Complaints this quarter ${c.total} (previous ${c.prev_total}); repeat contacts ${n1(c.repeat_contact_pct)}%.`);
+    if (c.by_channel) L.push('Complaints by channel: ' + c.by_channel.map((x) => `${x.channel} ${x.complaints} (was ${x.prev})`).join('; ') + '.');
+    if (c.by_theme) L.push('Complaint categories: ' + c.by_theme.map((t) => `${t.theme} ${t.complaints} (was ${t.prev}${t.growth_pct != null ? ', ' + (t.growth_pct >= 0 ? '+' : '') + t.growth_pct + '%' : ''})${t.fastest_growing_cities && t.fastest_growing_cities.length ? ', growing most in ' + t.fastest_growing_cities.map((x) => x.city).join(', ') : ''}`).join('; ') + '.');
+    if (d.competitors_enquiry_scenario) L.push('Same enquiry scenario vs competitors: ' + d.competitors_enquiry_scenario.map((r) => `${r.touchpoint}: ` + Object.keys(r).filter((k) => k !== 'touchpoint').map((k) => `${k} ${n1(r[k].score)}`).join(', ')).join('; ') + '.');
+    if (d.agent_spread) L.push('Agents: ' + d.agent_spread.map((a) => `${a.group} median ${n1(a.median)}, ${a.below_65} of ${a.agents_with_3plus_evals} below 65`).join('; ') + '.');
+    return L.join('\n');
+  }
+
+  /* pick a few real comments that match the question */
+  function comments(q) {
+    const sets = (window.dash && window.dash._sets && window.dash._sets()) || {};
+    const cs = sets.complaints || [], shops = sets.shops || [];
+    if (!cs.length) return '';
+    const qs = [...new Set(cs.map((c) => c.quarter))].sort(); const qc = qs[qs.length - 1];
+    const cur = cs.filter((c) => c.quarter === qc);
+    const words = String(q).toLowerCase().match(/[a-z]{4,}/g) || [];
+    const score = (t) => words.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0);
+    let pick = cur.map((c) => ({ c, s: score((c.category + ' ' + c.comment + ' ' + c.city + ' ' + c.tp).toLowerCase()) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 6).map((x) => x.c);
+    if (pick.length < 3) {
+      const byCat = {}; cur.forEach((c) => { (byCat[c.category] = byCat[c.category] || []).push(c); });
+      pick = pick.concat(Object.values(byCat).sort((a, b) => b.length - a.length).slice(0, 3).map((a) => a[0])).slice(0, 6);
+    }
+    const out = ['Sample complaint comments:'].concat(pick.map((c) => `- [${c.category}, ${c.tp}, ${c.city}] "${String(c.comment).slice(0, 220)}"`));
+    const rs = [...new Set(shops.map((s) => s.round))].sort(); const rc = rs[rs.length - 1];
+    const sh = shops.filter((s) => s.round === rc && s.brand === 'Telenor' && s.verbatim).map((s) => ({ s, k: score((s.verbatim + ' ' + s.city + ' ' + s.tp).toLowerCase()) })).filter((x) => x.k > 0).sort((a, b) => b.k - a.k || a.s.overall - b.s.overall).slice(0, 3);
+    if (sh.length) { out.push('Sample mystery shopper comments:'); sh.forEach(({ s }) => out.push(`- [${s.touchpoint}, ${s.city}, score ${s.overall}] "${String(s.verbatim).slice(0, 220)}"`)); }
+    return out.join('\n');
+  }
+
+  async function localSample(messages, opts = {}) {
+    if (!(await gpuOK())) throw fail('no_gpu');
+    if (!consented()) throw fail('local_consent');
+    const lead = messages[0] && messages[0].content || '';
+    let data = '';
+    const i = lead.indexOf('{'); try { data = compact(JSON.parse(lead.slice(i))); } catch (e) { data = lead.slice(i, i + 6000); }
+    const turns = messages.slice(1).filter((m) => typeof m.content === 'string').slice(-5);
+    const lastQ = (turns.filter((m) => m.role === 'user').pop() || {}).content || '';
+    const sys = 'You are the insights analyst for MergeCo (Telenor Pakistan). Answer managers\' questions using ONLY the data below. Never invent numbers; if the data does not cover something, say so. Lead with a one-sentence answer, then at most 5 short bullets with numbers. Under 180 words. Plain English.\n\nDATA\n' + data + '\n\n' + comments(lastQ);
+    let eng;
+    try { eng = await getEngine(); } catch (e) { console.error(e); throw fail(/memory|device|adapter|gpu/i.test(String(e && e.message)) ? 'gpu_failed' : 'local_load_failed'); }
+    say('Thinking…');
+    const onAbort = () => { try { eng.interruptGenerate(); } catch (e) { /* ignore */ } };
+    if (opts.signal) opts.signal.addEventListener('abort', onAbort, { once: true });
+    let text = '';
+    try {
+      const stream = await eng.chat.completions.create({ messages: [{ role: 'system', content: sys }, ...turns], stream: true, temperature: 0.3, max_tokens: 600 });
+      for await (const c of stream) {
+        const d = c.choices && c.choices[0] && c.choices[0].delta && c.choices[0].delta.content;
+        if (d) { text += d; if (opts.onText) opts.onText({ text }); }
+        if (opts.signal && opts.signal.aborted) break;
+      }
+    } catch (e) { console.error(e); if (opts.signal && opts.signal.aborted) throw fail('cancelled', text || undefined); throw fail('gpu_failed', text || undefined); }
+    finally { if (opts.signal) opts.signal.removeEventListener('abort', onAbort); say(''); }
+    if (opts.signal && opts.signal.aborted) throw fail('cancelled', text || undefined);
+    if (!text) throw fail('empty_completion');
+    return { text };
+  }
+  localSample.limits = async () => ({ tools: false });
+
+  /* plug into the page runtime: key → Claude API; no key → on-device model */
+  const base = window.claude && window.claude.use;
+  if (base) {
+    window.claude.use = async (name) => {
+      if (name !== 'sample') return base(name);
+      const remote = await base('sample');
+      return remote || localSample;
+    };
+  }
+  window.PULSE_LOCAL_AI = {
+    hasGPU, gpuOK, consented,
+    enable: async () => { if (!(await gpuOK())) throw fail('no_gpu'); try { localStorage.setItem(OK_KEY, '1'); } catch (e) { /* ignore */ } await getEngine(); },
+  };
+})();
+</script>
 <script>
 /* A small runtime with the same surface the dashboard pages were written against:
    datasets, calculations, drawings, parameters. Data arrives through dash._setData(). */
@@ -980,7 +1102,7 @@ new MutationObserver((list) => {
             <div class="ai-cats" id="ai-cats"></div>
             <p class="ms-note" style="margin:0 !important">Click a category to ask what's driving it.</p>
           </div>
-          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:4px 0 8px">Paste your team's Anthropic API key. It is stored in this browser only. To answer, your question and a summary of the loaded data are sent to Anthropic. The complaint pulse above works without a key.</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="up-go" type="submit">Save key</button></form></div>
+          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:6px 0 4px"><b>Free, no key:</b> run a small AI model inside this browser. One-time download of about 1.8 GB, then it works offline. Your data never leaves this device. Needs Chrome or Edge on a laptop; answers are simpler than Claude's.</p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="up-go" id="ai-local" type="button">Turn on free AI</button><span class="ms-note" id="ai-local-progress"></span></div><p style="margin:12px 0 6px"><b>Or, with an Anthropic API key</b> (better answers; questions and a data summary go to Anthropic; key stays in this browser):</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="ms-btn" type="submit">Save key</button></form></div>
           <div class="ai-chat" id="ai-chat" aria-live="polite">
             <div class="ai-msg a"><p>Hi. I can read every mystery shop, complaint, store, agent and competitor result loaded in this app. Start with the pulse, or ask your own question.</p></div>
           </div>
@@ -997,7 +1119,7 @@ new MutationObserver((list) => {
               <div class="ai-btns"><button class="up-go" id="ai-go" type="submit">Ask</button><button class="ms-btn" id="ai-stop" type="button" hidden>Stop</button></div>
             </form>
             <div class="ms-note" id="ai-status"></div>
-            <div><button class="ms-link" id="ai-keyedit" type="button">Change API key</button></div>
+            <div><button class="ms-link" id="ai-keyedit" type="button">AI settings</button></div>
           </div>
         </div>
       </section>
@@ -3357,7 +3479,7 @@ window.PulseImport = (() => {
     });
   }
   let ctl = null; const turns = [];
-  const ERR = { not_granted: 'You declined Claude for this page, so chat is off for this visit.', sampling_disabled: 'Claude isn’t available for this account.', rate_limited: 'Too many questions just now. Wait a minute and try again.', session_expired: 'Your session expired. Sign in again.', refused: 'Claude declined that question. Try rephrasing it.', prompt_too_large: 'That was too much at once. Ask something narrower.', empty_completion: 'No answer came back. Try again.', upstream_error: 'The connection dropped. Try again.', no_key: 'Add an API key to use Ask AI.', bad_key: 'That API key was rejected. Paste a valid key.', offline: 'Couldn’t reach Anthropic. Check the internet connection.' };
+  const ERR = { not_granted: 'You declined Claude for this page, so chat is off for this visit.', sampling_disabled: 'Claude isn’t available for this account.', rate_limited: 'Too many questions just now. Wait a minute and try again.', session_expired: 'Your session expired. Sign in again.', refused: 'Claude declined that question. Try rephrasing it.', prompt_too_large: 'That was too much at once. Ask something narrower.', empty_completion: 'No answer came back. Try again.', upstream_error: 'The connection dropped. Try again.', no_key: 'Add an API key to use Ask AI.', local_consent: 'Turn on the free AI first (button above), or add an API key.', no_gpu: 'This browser can’t run the free AI. Use Chrome or Edge on a laptop, or add an API key.', gpu_failed: 'The free AI stopped: this device ran out of graphics memory. Close other tabs and try again, or add an API key.', local_load_failed: 'Couldn’t download the free AI model. Check the internet connection and try again.', bad_key: 'That API key was rejected. Paste a valid key.', offline: 'Couldn’t reach Anthropic. Check the internet connection.' };
   const ROLE = 'You are the insights analyst for MergeCo (Telenor Pakistan and PTML). You answer managers’ questions about mystery shopping results and the complaint team’s log. Use only the data; use the look-up tools for detail rather than guessing; never invent numbers. Lead with the answer in one sentence, then at most 5 short bullets with numbers. Under 200 words. Plain English.';
   const PULSE_Q = 'Give me the complaint pulse for this quarter: the major complaint categories with counts and change, what is driving the top three (quote one or two comments), which channels and cities they concentrate in, and the one thing to act on first.';
   const aiStatus = (t) => { $('ai-status').textContent = t || ''; };
@@ -3375,7 +3497,7 @@ window.PulseImport = (() => {
     if (toolsOK) opts.tools = TOOLS.map((t) => ({ ...t, execute: (inp, c) => { calls.push(t.name.replace('_', ' ')); used.textContent = 'Looked up: ' + calls.join(', '); aiStatus('Looking up ' + t.name.replace('_', ' ') + '…'); return t.execute(inp || {}, c); } }));
     else opts.cache = false;
     ctl = new AbortController(); opts.signal = ctl.signal;
-    $('ai-go').disabled = true; $('ai-stop').hidden = false; aiStatus('Claude is reading the data… (10–60 s)');
+    $('ai-go').disabled = true; $('ai-stop').hidden = false; aiStatus('Reading the data…');
     try {
       const { text } = await sampleFn([lead, ...turns.slice(-8)], opts);
       renderMd(body, text); turns.push({ role: 'assistant', content: text }); aiStatus('');
@@ -3383,7 +3505,7 @@ window.PulseImport = (() => {
       turns.pop();
       if (e && e.text) renderMd(body, e.text); else body.replaceChildren(el('p', null, e && e.code === 'cancelled' ? 'Stopped.' : (ERR[e && e.code] || 'Something went wrong. Try again.')));
       aiStatus('');
-      if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'bad_key' || e.code === 'no_key')) { $('ai-unavail').hidden = false; }
+      if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'bad_key' || e.code === 'no_key' || e.code === 'local_consent' || e.code === 'no_gpu' || e.code === 'local_load_failed')) { $('ai-unavail').hidden = false; }
     } finally { $('ai-go').disabled = !sampleFn; $('ai-stop').hidden = true; }
   }
   $('ai-form').addEventListener('submit', (e) => { e.preventDefault(); const q = $('ai-q').value; $('ai-q').value = ''; ask(q); });
@@ -3428,6 +3550,15 @@ window.PulseImport = (() => {
 (() => {
   const f = document.getElementById('ai-keyform'), k = document.getElementById('ai-key');
   if (f) f.addEventListener('submit', async (e) => { e.preventDefault(); await window.PULSE_DESKTOP.setKey(k.value); location.hash = 'ai'; location.reload(); });
+  const lb = document.getElementById('ai-local'), L = window.PULSE_LOCAL_AI;
+  if (lb && L) {
+    L.gpuOK().then((ok) => { if (!ok) { lb.disabled = true; document.getElementById('ai-local-progress').textContent = 'Not available in this browser or device. Use Chrome or Edge on a laptop, or add an API key.'; } else if (L.consented()) { lb.textContent = 'Free AI is on'; lb.disabled = true; } });
+    lb.addEventListener('click', async () => {
+      lb.disabled = true;
+      try { await L.enable(); lb.textContent = 'Free AI is on'; document.getElementById('ai-unavail').hidden = true; document.getElementById('ai-status').textContent = 'Free AI ready. Ask a question.'; document.getElementById('ai-go').disabled = false; }
+      catch (e) { console.error(e); lb.disabled = false; document.getElementById('ai-local-progress').textContent = 'Couldn’t start the free AI on this device. Try Chrome or Edge on a laptop, or use an API key.'; }
+    });
+  }
   const ed = document.getElementById('ai-keyedit');
   if (ed) ed.addEventListener('click', () => { const u = document.getElementById('ai-unavail'); u.hidden = !u.hidden; if (!u.hidden) k.focus(); });
 })();
