@@ -221,7 +221,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    questions and data never leave the device. */
 (() => {
   const LIB = /^https?:$/.test(location.protocol) ? new URL('web-llm.js', location.href).href : 'https://esm.run/@mlc-ai/web-llm@0.2.85';
-  const MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+  const MODELS = {
+    standard: { id: 'Qwen3-4B-q4f16_1-MLC', label: 'Standard', size: 'about 2.5 GB' },
+    best: { id: 'Qwen3-8B-q4f16_1-MLC', label: 'Best', size: 'about 5 GB' },
+  };
+  const PICK_KEY = 'pulse-ai-model';
+  const pick = () => { try { return MODELS[localStorage.getItem(PICK_KEY)] ? localStorage.getItem(PICK_KEY) : 'standard'; } catch (e) { return 'standard'; } };
+  let MODEL = MODELS[pick()].id;
   const OK_KEY = 'pulse-ai-local';
   const hasGPU = !!navigator.gpu;
   let gpuP = null;
@@ -239,10 +245,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         say('Loading the AI library…');
         lib = lib || await import(LIB);
         let cached = false; try { cached = await lib.hasModelInCache(MODEL); } catch (e) { /* ignore */ }
-        say(cached ? 'Starting the AI model…' : 'Downloading the AI model (about 1 GB, first time only)…');
+        const sz = (Object.values(MODELS).find((m) => m.id === MODEL) || {}).size || '';
+        say(cached ? 'Starting the AI model…' : `Downloading the AI model (${sz}, first time only)…`);
         engine = await lib.CreateMLCEngine(MODEL, {
           initProgressCallback: (r) => { const pct = Math.round((r.progress || 0) * 100); say((cached ? 'Starting the AI model… ' : 'Downloading the AI model, first time only… ') + pct + '%'); },
-        }, { context_window_size: 4096 });
+        }, { context_window_size: 8192 });
         say('');
         return engine;
       })().catch((e) => { loading = null; engine = null; say(''); throw e; });
@@ -262,7 +269,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     L.push('Stages: ' + (d.stages || []).map((s) => `${s.stage} ${n1(s.score)}${ch(s.score, s.prev)}`).join('; ') + '.');
     L.push('Regions: ' + (d.regions || []).map((r) => `${r.region} ${n1(r.score)}${ch(r.score, r.prev)}`).join('; ') + '.');
     L.push('Lowest-scoring cities (stores): ' + (d.cities || []).slice(0, 6).map((c) => `${c.city} ${n1(c.store_score)}${ch(c.store_score, c.prev)}`).join('; ') + '.');
-    L.push('Top fracture points (share of shops where it happened): ' + (d.top_fracture_points || []).slice(0, 6).map((f) => `${f.fracture} [${f.touchpoint}] ${n1(f.fail_rate_pct)}% (was ${n1(f.prev_pct)}%), owner ${f.owner}`).join('; ') + '.');
+    L.push('Top fracture points (share of shops where it happened): ' + (d.top_fracture_points || []).slice(0, 6).map((f) => `${f.fracture} [${f.touchpoint}] ${n1(f.fail_rate_pct)}% (was ${n1(f.prev_pct)}%)`).join('; ') + '.');
     const c = d.complaints || {};
     L.push(`Complaints this quarter ${c.total} (previous ${c.prev_total}); repeat contacts ${n1(c.repeat_contact_pct)}%.`);
     if (c.by_channel) L.push('Complaints by channel: ' + c.by_channel.map((x) => `${x.channel} ${x.complaints} (was ${x.prev})`).join('; ') + '.');
@@ -271,6 +278,25 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (d.agent_spread) L.push('Agents: ' + d.agent_spread.map((a) => `${a.group} median ${n1(a.median)}, ${a.below_65} of ${a.agents_with_3plus_evals} below 65`).join('; ') + '.');
     return L.join('\n');
   }
+
+  /* the computed diagnosis, as short lines */
+  function diagText(d) {
+    if (!d || d.note) return d && d.note ? d.note : '';
+    const L = [`DIAGNOSIS for ${d.channel}, round ${d.round}${d.previous_round ? ' vs ' + d.previous_round : ''}, ${d.telenor_visits} Telenor visits.`];
+    L.push('Issues ranked by score points lost (frequency x damage):');
+    (d.issues_ranked_by_points_lost || []).slice(0, 6).forEach((x, i) => L.push(`${i + 1}. ${x.issue} [${x.channel}, ${x.stage}]: in ${x.rate_pct}% of visits${x.prev_rate_pct != null ? ` (was ${x.prev_rate_pct}%)` : ''}; score ${x.score_with} with it vs ${x.score_without} without; rating ${x.rating_with} vs ${x.rating_without}; solved ${x.solved_with_pct}% vs ${x.solved_without_pct}%; points lost ${x.points_lost}.`));
+    (d.top_issues_deep_dive || []).forEach((f) => {
+      const parts = [];
+      Object.entries(f.concentrated_in || {}).forEach(([k, rows]) => parts.push(`${k}: ` + rows.map((r) => `${r[k]} ${r.rate_pct}% (${r.visits} visits, ${r.times_channel_rate}x)`).join(', ')));
+      L.push(`Deep dive - ${f.issue}: concentrated in ${parts.join('; ') || 'no group stands out'}.`);
+      if ((f.occurs_with || []).length) L.push(`  Occurs with: ` + f.occurs_with.map((o) => `${o.issue} (${o.pct_of_visits_when_present}% when present vs ${o.pct_when_absent}% when absent)`).join('; ') + '.');
+      (f.shopper_notes || []).forEach((n) => L.push(`  Shopper note (${n.where}, score ${n.score}): "${String(n.note).slice(0, 160)}"`));
+    });
+    if ((d.wait_effect || []).length) L.push('Wait time: ' + d.wait_effect.map((w) => `${w.wait}: score ${w.score}, rating ${w.rating}, solved ${w.solved_pct}% (${w.visits} visits)`).join('; ') + '.');
+    if ((d.complaint_categories || []).length) L.push(`Complaint categories, ${d.complaint_quarter}: ` + d.complaint_categories.map((c) => `${c.category} ${c.complaints}${c.growth_pct != null ? ` (${c.growth_pct >= 0 ? '+' : ''}${c.growth_pct}%)` : ''}, repeat ${c.repeat_pct}%, unresolved ${c.unresolved_pct}%`).join('; ') + '.');
+    return L.join('\n');
+  }
+  const CHANNEL_WORDS = { franchise: /store|franchise|service cent|retail|shop\b/i, helpline: /helpline|call cent|phone|calls?\b/i, social: /social|facebook|twitter|instagram/i, webchat: /webchat|whatsapp|chat/i, email: /e-?mail/i };
 
   /* pick a few real comments that match the question */
   function comments(q) {
@@ -297,23 +323,28 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (!(await gpuOK())) throw fail('no_gpu');
     if (!consented()) throw fail('local_consent');
     const lead = messages[0] && messages[0].content || '';
-    let data = '';
-    const i = lead.indexOf('{'); try { data = compact(JSON.parse(lead.slice(i))); } catch (e) { data = lead.slice(i, i + 6000); }
     const turns = messages.slice(1).filter((m) => typeof m.content === 'string').slice(-5);
     const lastQ = (turns.filter((m) => m.role === 'user').pop() || {}).content || '';
-    const sys = 'You are the insights analyst for MergeCo (Telenor Pakistan). Answer managers\' questions using ONLY the data below. Never invent numbers; if the data does not cover something, say so. Lead with a one-sentence answer, then at most 5 short bullets with numbers. Under 150 words. Plain English.\n\nDATA\n' + data + '\n\n' + comments(lastQ);
+    const sIdx = lead.indexOf('DATA_SUMMARY\n'), dIdx = lead.indexOf('\n\nDIAGNOSIS\n');
+    const role = sIdx > 0 ? lead.slice(0, sIdx).trim() : '';
+    let data = '';
+    try { data = compact(JSON.parse(lead.slice(sIdx + 13, dIdx > 0 ? dIdx : undefined))); } catch (e) { data = ''; }
+    const chMatch = Object.entries(CHANNEL_WORDS).find(([, re]) => re.test(lastQ));
+    let diag = '';
+    try { diag = diagText(window.__pulseDiagnose ? window.__pulseDiagnose(chMatch ? { channel: chMatch[0] } : {}) : JSON.parse(lead.slice(dIdx + 12))); } catch (e) { diag = ''; }
+    const sys = (role || 'You are the diagnostic insights analyst for MergeCo (Telenor Pakistan). Use only the data below; never invent numbers.') + '\n\n' + diag + '\n\nDATA SUMMARY\n' + data + '\n\n' + comments(lastQ) + '\n/no_think';
     let eng;
     try { eng = await getEngine(); } catch (e) { console.error(e); throw fail(/memory|device|adapter|gpu/i.test(String(e && e.message)) ? 'gpu_failed' : 'local_load_failed'); }
     const t0 = Date.now(); let got = false;
     const tick = setInterval(() => { if (!got) say('Thinking… ' + Math.round((Date.now() - t0) / 1000) + ' s'); }, 1000);
     const onAbort = () => { try { eng.interruptGenerate(); } catch (e) { /* ignore */ } };
     if (opts.signal) opts.signal.addEventListener('abort', onAbort, { once: true });
-    let text = '';
+    let text = '', raw = '';
     try {
-      const stream = await eng.chat.completions.create({ messages: [{ role: 'system', content: sys }, ...turns], stream: true, temperature: 0.3, max_tokens: 350 });
+      const stream = await eng.chat.completions.create({ messages: [{ role: 'system', content: sys }, ...turns], stream: true, temperature: 0.3, max_tokens: 700 });
       for await (const c of stream) {
         const d = c.choices && c.choices[0] && c.choices[0].delta && c.choices[0].delta.content;
-        if (d) { if (!got) { got = true; say('Writing…'); } text += d; if (opts.onText) opts.onText({ text }); }
+        if (d) { raw += d; const shown = raw.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim(); if (shown) { if (!got) { got = true; say('Writing…'); } text = shown; if (opts.onText) opts.onText({ text }); } }
         if (opts.signal && opts.signal.aborted) break;
       }
     } catch (e) { console.error(e); if (opts.signal && opts.signal.aborted) throw fail('cancelled', text || undefined); throw fail('gpu_failed', text || undefined); }
@@ -339,6 +370,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   });
   window.PULSE_LOCAL_AI = {
     hasGPU, gpuOK, consented,
+    models: MODELS, current: () => pick(),
+    choose: (k) => { if (!MODELS[k]) return; try { localStorage.setItem(PICK_KEY, k); } catch (e) { /* ignore */ } if (MODELS[k].id !== MODEL) { MODEL = MODELS[k].id; if (engine && engine.unload) engine.unload().catch(() => {}); engine = null; loading = null; } },
     enable: async () => { if (!(await gpuOK())) throw fail('no_gpu'); try { localStorage.setItem(OK_KEY, '1'); } catch (e) { /* ignore */ } await getEngine(); },
   };
 })();
@@ -1110,7 +1143,7 @@ new MutationObserver((list) => {
             <div class="ai-cats" id="ai-cats"></div>
             <p class="ms-note" style="margin:0 !important">Click a category to ask what's driving it.</p>
           </div>
-          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:6px 0 4px"><b>Free, no key:</b> run a small AI model inside this browser. One-time download of about 1 GB, then it works offline. Your data never leaves this device. Needs Chrome or Edge on a laptop; answers are simpler than Claude's.</p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="up-go" id="ai-local" type="button">Turn on free AI</button><span class="ms-note" id="ai-local-progress"></span></div><p style="margin:12px 0 6px"><b>Or, with an Anthropic API key</b> (better answers; questions and a data summary go to Anthropic; key stays in this browser):</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="ms-btn" type="submit">Save key</button></form></div>
+          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:6px 0 4px"><b>Free, no key:</b> runs an open AI model (Qwen3) inside this browser on the diagnosis the dashboard computes. One-time download, then it works offline; your data never leaves this device. Needs Chrome or Edge on a laptop.</p><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="up-go" id="ai-local" data-model="standard" type="button">Standard model (about 2.5 GB)</button><button class="ms-btn" id="ai-local-best" data-model="best" type="button">Best model (about 5 GB, needs a dedicated graphics card)</button></div><p class="ms-note" id="ai-local-progress" style="margin:6px 0 0"></p><p style="margin:12px 0 6px"><b>Richest diagnosis: Claude, with an Anthropic API key.</b> Claude can also dig into any store, agent or comment on its own. Questions and the data summary go to Anthropic; the key stays in this browser.</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="ms-btn" type="submit">Save key</button></form></div>
           <div class="ai-chat" id="ai-chat" aria-live="polite">
             <div class="ai-msg a"><p>Hi. I can read every mystery shop, complaint, store, agent and competitor result loaded in this app. Start with the pulse, or ask your own question.</p></div>
           </div>
@@ -3524,7 +3557,64 @@ window.PulseImport = (() => {
   }
 
 
+  /* ---------- diagnosis: where the score is really lost, computed from the entered visits ---------- */
+  const lc = (v) => String(v || '').toLowerCase();
+  function diagnose(o = {}) {
+    const ch = o.channel ? lc(o.channel) : null;
+    const inCh = (s) => !ch || s.tp === ch;
+    const C = tel(cur).filter(inCh), Pv = prev ? tel(prev).filter(inCh) : [];
+    if (!C.length) return { note: 'No Telenor visits in the latest round for this filter.' };
+    const ids = uniq(C.flatMap((s) => fails(s))).filter((f) => FX[f]);
+    const stats = ids.map((f) => {
+      const tp = FX[f].tp; const base = C.filter((s) => s.tp === tp);
+      const w = base.filter((s) => fails(s).includes(f)), wo = base.filter((s) => !fails(s).includes(f));
+      const pb = Pv.filter((s) => s.tp === tp), pw = pb.filter((s) => fails(s).includes(f));
+      const sw = mean(w, (s) => s.overall), so = wo.length ? mean(wo, (s) => s.overall) : null;
+      const rate = base.length ? w.length / base.length : 0;
+      return { id: f, tp, issue: FX[f].fracture, stage: FX[f].stage, channel: TPN[tp] || tp, visits_with_issue: w.length, channel_visits: base.length,
+        rate_pct: r1(rate * 100), prev_rate_pct: pb.length ? r1((pw.length / pb.length) * 100) : null,
+        score_with: r1(sw), score_without: r1(so), rating_with: r1(mean(w, (s) => s.rating)), rating_without: wo.length ? r1(mean(wo, (s) => s.rating)) : null,
+        solved_with_pct: w.length ? r1((w.filter((s) => s.resolved).length / w.length) * 100) : null, solved_without_pct: wo.length ? r1((wo.filter((s) => s.resolved).length / wo.length) * 100) : null,
+        points_lost: so === null || sw === null ? null : r1((so - sw) * rate) };
+    }).sort((a, b) => (b.points_lost ?? 0) - (a.points_lost ?? 0));
+    const want = o.issue ? lc(o.issue) : null;
+    const focus = want ? stats.filter((x) => lc(x.issue).includes(want) || x.id === o.issue).slice(0, 3) : stats.slice(0, 3);
+    const where = (x) => {
+      const base = C.filter((s) => s.tp === x.tp); const rate = x.rate_pct / 100; const out = {};
+      const dims = { city: (s) => s.city, store: (s) => (s.tp === 'franchise' ? s.place : ''), agent: (s) => s.agent_id, scenario: (s) => s.scenario };
+      Object.entries(dims).forEach(([k, fn]) => {
+        const g = {}; base.forEach((s) => { const key = fn(s); if (key) (g[key] = g[key] || []).push(s); });
+        const rows = Object.entries(g).filter(([, v]) => v.length >= 3).map(([key, v]) => { const r = v.filter((s) => fails(s).includes(x.id)).length / v.length; return { [k]: key, rate_pct: r1(r * 100), visits: v.length, times_channel_rate: rate ? r1(r / rate) : null }; })
+          .filter((y) => y.times_channel_rate !== null && y.times_channel_rate >= 1.3).sort((a, b) => b.times_channel_rate - a.times_channel_rate || b.visits - a.visits).slice(0, 3);
+        if (rows.length) out[k] = rows;
+      });
+      return out;
+    };
+    const together = (x) => {
+      const base = C.filter((s) => s.tp === x.tp); const A = base.filter((s) => fails(s).includes(x.id)), nA = base.filter((s) => !fails(s).includes(x.id));
+      if (A.length < 3 || nA.length < 3) return [];
+      return stats.filter((y) => y.tp === x.tp && y.id !== x.id).map((y) => { const pa = A.filter((s) => fails(s).includes(y.id)).length / A.length, pn = nA.filter((s) => fails(s).includes(y.id)).length / nA.length;
+        return { issue: y.issue, pct_of_visits_when_present: r1(pa * 100), pct_when_absent: r1(pn * 100), times_more_likely: pn ? r1(pa / pn) : null }; })
+        .filter((z) => z.pct_of_visits_when_present >= 30 && (z.times_more_likely === null || z.times_more_likely >= 1.5)).sort((a, b) => (b.times_more_likely ?? 99) - (a.times_more_likely ?? 99)).slice(0, 3);
+    };
+    const seenNotes = new Set();
+    const notes = (x) => C.filter((s) => s.tp === x.tp && fails(s).includes(x.id) && s.verbatim).sort((a, b) => a.overall - b.overall).filter((s) => { const k = lc(s.verbatim); if (seenNotes.has(k)) return false; seenNotes.add(k); return true; }).slice(0, 2).map((s) => ({ note: s.verbatim, where: s.place, score: s.overall }));
+    const waitBands = [[0, 5, 'under 5 min'], [5, 10, '5 to 10 min'], [10, 1e9, '10 min or more']].map(([lo, hi, l]) => { const v = C.filter((s) => s.wait_min != null && s.wait_min >= lo && s.wait_min < hi); return v.length >= 3 ? { wait: l, visits: v.length, score: r1(mean(v, (s) => s.overall)), rating: r1(mean(v, (s) => s.rating)), solved_pct: r1((v.filter((s) => s.resolved).length / v.length) * 100) } : null; }).filter(Boolean);
+    const cc = D.complaints.filter((c) => c.quarter === qc && (!ch || c.tp === ch)), cp = qp ? D.complaints.filter((c) => c.quarter === qp && (!ch || c.tp === ch)) : [];
+    const cats = uniq(cc.map((c) => c.category)).map((cat) => { const m = cc.filter((c) => c.category === cat); const p = cp.filter((c) => c.category === cat).length;
+      return { category: cat, complaints: m.length, prev: p, growth_pct: p ? r1(((m.length - p) / p) * 100) : null, repeat_pct: r1((m.filter((c) => c.repeat).length / m.length) * 100), unresolved_pct: r1((m.filter((c) => !/resolv/i.test(c.status)).length / m.length) * 100) }; })
+      .sort((a, b) => b.complaints - a.complaints).slice(0, 6);
+    return { round: cur, previous_round: prev, channel: ch ? (TPN[ch] || ch) : 'all channels', telenor_visits: C.length,
+      how_to_read: 'points_lost = (average score without the issue minus with it) x share of visits with it: the score the channel loses to that issue. times_channel_rate = how much more often a city, store, agent or scenario has the issue than the channel overall (groups of 3+ visits). times_more_likely = how much more often another issue appears when this one is present.',
+      issues_ranked_by_points_lost: stats.slice(0, 8).map(({ tp, id, ...x }) => x),
+      top_issues_deep_dive: focus.map((x) => ({ issue: x.issue, channel: x.channel, points_lost: x.points_lost, concentrated_in: where(x), occurs_with: together(x), shopper_notes: notes(x) })),
+      wait_effect: waitBands, complaint_categories: cats, complaint_quarter: qc };
+  }
+
   const TOOLS = [
+    { name: 'diagnose', description: 'Root-cause diagnosis for the latest round, computed from the entered visits: issues ranked by score points lost; for the top issues, where they concentrate (city, store, agent, scenario), which other issues occur with them, and shopper notes; the effect of waiting time; and the biggest complaint categories with growth, repeat and unresolved rates. Optional channel (franchise, helpline, social, webchat, email) and issue (words from an issue name). Call this first for any why or what-to-fix question.',
+      inputSchema: { type: 'object', properties: { channel: { type: 'string' }, issue: { type: 'string' } } },
+      execute: (i) => diagnose(i || {}) },
     { name: 'scores_by', description: 'Average Telenor mystery shopping score for the latest and previous round, split by one dimension. Returns rows {group, score, prev, n}.',
       inputSchema: { type: 'object', properties: { dimension: { type: 'string', enum: ['touchpoint', 'region', 'city', 'format', 'scenario', 'cluster'] }, touchpoint: { type: 'string', description: 'optional filter: franchise, helpline, social, webchat, email' } }, required: ['dimension'] },
       execute: (i) => { const dim = String(i.dimension); const tp = i.touchpoint ? String(i.touchpoint) : null; const L = Object.fromEntries(D.locations.map((l) => [l.loc_id, l]));
@@ -3569,6 +3659,7 @@ window.PulseImport = (() => {
     });
   }
 
+  window.__pulseDiagnose = (o) => diagnose(o || {});
   function renderPulse() {
     if (!D.complaints) return;
     const cc = D.complaints.filter((c) => c.quarter === qc), cp = qp ? D.complaints.filter((c) => c.quarter === qp) : [];
@@ -3588,8 +3679,18 @@ window.PulseImport = (() => {
   }
   let ctl = null; const turns = [];
   const ERR = { not_granted: 'You declined Claude for this page, so chat is off for this visit.', sampling_disabled: 'Claude isn’t available for this account.', rate_limited: 'Too many questions just now. Wait a minute and try again.', session_expired: 'Your session expired. Sign in again.', refused: 'Claude declined that question. Try rephrasing it.', prompt_too_large: 'That was too much at once. Ask something narrower.', empty_completion: 'No answer came back. Try again.', upstream_error: 'The connection dropped. Try again.', no_key: 'Add an API key to use Ask AI.', local_consent: 'Turn on the free AI first (button above), or add an API key.', no_gpu: 'This browser can’t run the free AI. Use Chrome or Edge on a laptop, or add an API key.', gpu_failed: 'The free AI stopped: this device ran out of graphics memory. Close other tabs and try again, or add an API key.', local_load_failed: 'Couldn’t download the free AI model. Check the internet connection and try again.', bad_key: 'That API key was rejected. Paste a valid key.', offline: 'Couldn’t reach Anthropic. Check the internet connection.' };
-  const ROLE = 'You are the insights analyst for MergeCo (Telenor Pakistan and PTML). You answer managers’ questions about mystery shopping results and the complaint team’s log. Use only the data; use the look-up tools for detail rather than guessing; never invent numbers. Lead with the answer in one sentence, then at most 5 short bullets with numbers. Under 200 words. Plain English.';
-  const PULSE_Q = 'Give me the complaint pulse for this quarter: the major complaint categories with counts and change, what is driving the top three (quote one or two comments), which channels and cities they concentrate in, and the one thing to act on first.';
+  const ROLE = [
+    'You are the diagnostic insights analyst for MergeCo (Telenor Pakistan and PTML). Managers use you to find the real issue behind the mystery shopping and complaint results, not to restate the dashboard.',
+    'Method:',
+    '1. Start where the score is actually lost: DIAGNOSIS ranks issues by points lost (how often it happens x how much it costs the score).',
+    '2. Separate root cause from symptom: an issue that makes others far more likely (occurs_with) is upstream of them. Say which is which.',
+    '3. Locate it: name the cities, stores, agents or scenarios where it runs well above the channel rate, with visit counts.',
+    '4. Corroborate: connect it to complaint categories that are large or growing, and quote one shopper note or complaint comment.',
+    '5. Size and confidence: give numbers; call anything based on fewer than 10 visits a small sample.',
+    'Rules: use only the data below or what the tools return; never invent numbers, causes or fixes the data does not show; if the data cannot answer, say so plainly.',
+    'Format: first a one-sentence diagnosis (the real issue, where, how big). Then 3 to 5 short bullets: the evidence, where it concentrates, what travels with it, what to check next. Under 220 words. Plain English.',
+  ].join('\n');
+  const PULSE_Q = 'Diagnose this quarter: what is the one real issue costing us the most, where does it concentrate, what does it drive or travel with, and what do complaints and shopper notes say about it? Then list the major complaint categories with counts and change.';
   const aiStatus = (t) => { $('ai-status').textContent = t || ''; };
   async function ask(q) {
     q = String(q || '').trim(); if (!q) return;
@@ -3599,13 +3700,13 @@ window.PulseImport = (() => {
     const a = el('div', 'ai-msg a'); const body = el('div'); body.append(el('p', null, 'Thinking…')); const used = el('div', 'ai-lookups'); a.append(body, used); chat.append(a);
     a.scrollIntoView({ block: 'nearest' });
     turns.push({ role: 'user', content: q });
-    const lead = { role: 'user', content: `${ROLE}\n\nData summary (JSON):\n${JSON.stringify(overview())}` };
+    const lead = { role: 'user', content: `${ROLE}\n\nDATA_SUMMARY\n${JSON.stringify(overview())}\n\nDIAGNOSIS\n${JSON.stringify(diagnose())}` };
     const calls = [];
     const opts = { onText: ({ text }) => { renderMd(body, text); aiStatus('Writing…'); } };
     if (toolsOK) opts.tools = TOOLS.map((t) => ({ ...t, execute: (inp, c) => { calls.push(t.name.replace('_', ' ')); used.textContent = 'Looked up: ' + calls.join(', '); aiStatus('Looking up ' + t.name.replace('_', ' ') + '…'); return t.execute(inp || {}, c); } }));
     else opts.cache = false;
     ctl = new AbortController(); opts.signal = ctl.signal;
-    $('ai-go').disabled = true; $('ai-stop').hidden = false; aiStatus('Reading the data…');
+    $('ai-go').disabled = true; $('ai-stop').hidden = false; aiStatus('Reading the diagnosis…');
     try {
       const { text } = await sampleFn([lead, ...turns.slice(-8)], opts);
       renderMd(body, text); turns.push({ role: 'assistant', content: text }); aiStatus('');
@@ -3658,14 +3759,18 @@ window.PulseImport = (() => {
 (() => {
   const f = document.getElementById('ai-keyform'), k = document.getElementById('ai-key');
   if (f) f.addEventListener('submit', async (e) => { e.preventDefault(); await window.PULSE_DESKTOP.setKey(k.value); location.hash = 'ai'; location.reload(); });
-  const lb = document.getElementById('ai-local'), L = window.PULSE_LOCAL_AI;
-  if (lb && L) {
-    L.gpuOK().then((ok) => { if (!ok) { lb.disabled = true; document.getElementById('ai-local-progress').textContent = 'Not available in this browser or device. Use Chrome or Edge on a laptop, or add an API key.'; } else if (L.consented()) { lb.textContent = 'Free AI is on'; lb.disabled = true; } });
-    lb.addEventListener('click', async () => {
-      lb.disabled = true;
-      try { await L.enable(); lb.textContent = 'Free AI is on'; document.getElementById('ai-unavail').hidden = true; document.getElementById('ai-status').textContent = 'Free AI ready. Ask a question.'; document.getElementById('ai-go').disabled = false; }
-      catch (e) { console.error(e); lb.disabled = false; document.getElementById('ai-local-progress').textContent = 'Couldn’t start the free AI on this device. Try Chrome or Edge on a laptop, or use an API key.'; }
-    });
+  const L = window.PULSE_LOCAL_AI, prog = document.getElementById('ai-local-progress');
+  const btns = [document.getElementById('ai-local'), document.getElementById('ai-local-best')].filter(Boolean);
+  const mark = () => { if (!L) return; const on = L.consented(), cur = L.current(); btns.forEach((b) => { const me = b.dataset.model === cur; b.className = me && on ? 'up-go' : 'ms-btn'; b.textContent = L.models[b.dataset.model].label + ' model (' + L.models[b.dataset.model].size + ')' + (me && on ? ' · on' : ''); }); };
+  if (L && btns.length) {
+    L.gpuOK().then((ok) => { if (!ok) { btns.forEach((b) => { b.disabled = true; }); prog.textContent = 'Not available in this browser or device. Use Chrome or Edge on a laptop, or add an API key.'; } else mark(); });
+    btns.forEach((b) => b.addEventListener('click', async () => {
+      btns.forEach((x) => { x.disabled = true; });
+      L.choose(b.dataset.model);
+      try { await L.enable(); mark(); document.getElementById('ai-unavail').hidden = true; document.getElementById('ai-status').textContent = 'Free AI ready (' + L.models[b.dataset.model].label + ' model). Ask a question.'; document.getElementById('ai-go').disabled = false; }
+      catch (e) { console.error(e); prog.textContent = b.dataset.model === 'best' ? 'This device could not run the Best model. Try Standard, or use an API key.' : 'Could not start the free AI on this device. Try Chrome or Edge on a laptop, or use an API key.'; }
+      finally { btns.forEach((x) => { x.disabled = false; }); }
+    }));
   }
   const ed = document.getElementById('ai-keyedit');
   if (ed) ed.addEventListener('click', () => { const u = document.getElementById('ai-unavail'); u.hidden = !u.hidden; if (!u.hidden) k.focus(); });
