@@ -221,7 +221,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    questions and data never leave the device. */
 (() => {
   const LIB = /^https?:$/.test(location.protocol) ? new URL('web-llm.js', location.href).href : 'https://esm.run/@mlc-ai/web-llm@0.2.85';
-  const MODEL = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+  const MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
   const OK_KEY = 'pulse-ai-local';
   const hasGPU = !!navigator.gpu;
   let gpuP = null;
@@ -239,10 +239,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         say('Loading the AI library…');
         lib = lib || await import(LIB);
         let cached = false; try { cached = await lib.hasModelInCache(MODEL); } catch (e) { /* ignore */ }
-        say(cached ? 'Starting the AI model…' : 'Downloading the AI model (about 1.8 GB, first time only)…');
+        say(cached ? 'Starting the AI model…' : 'Downloading the AI model (about 1 GB, first time only)…');
         engine = await lib.CreateMLCEngine(MODEL, {
           initProgressCallback: (r) => { const pct = Math.round((r.progress || 0) * 100); say((cached ? 'Starting the AI model… ' : 'Downloading the AI model, first time only… ') + pct + '%'); },
-        }, { context_window_size: 8192 });
+        }, { context_window_size: 4096 });
         say('');
         return engine;
       })().catch((e) => { loading = null; engine = null; say(''); throw e; });
@@ -261,8 +261,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     L.push('Score by channel: ' + (d.touchpoints || []).map((t) => `${t.touchpoint} ${n1(t.score)}${ch(t.score, t.prev)}, wait ${n1(t.avg_wait_min)} min`).join('; ') + '.');
     L.push('Stages: ' + (d.stages || []).map((s) => `${s.stage} ${n1(s.score)}${ch(s.score, s.prev)}`).join('; ') + '.');
     L.push('Regions: ' + (d.regions || []).map((r) => `${r.region} ${n1(r.score)}${ch(r.score, r.prev)}`).join('; ') + '.');
-    L.push('Store score by city, lowest first: ' + (d.cities || []).map((c) => `${c.city} ${n1(c.store_score)}${ch(c.store_score, c.prev)}`).join('; ') + '.');
-    L.push('Top fracture points (share of shops where it happened): ' + (d.top_fracture_points || []).slice(0, 10).map((f) => `${f.fracture} [${f.touchpoint}] ${n1(f.fail_rate_pct)}% (was ${n1(f.prev_pct)}%), owner ${f.owner}`).join('; ') + '.');
+    L.push('Lowest-scoring cities (stores): ' + (d.cities || []).slice(0, 6).map((c) => `${c.city} ${n1(c.store_score)}${ch(c.store_score, c.prev)}`).join('; ') + '.');
+    L.push('Top fracture points (share of shops where it happened): ' + (d.top_fracture_points || []).slice(0, 6).map((f) => `${f.fracture} [${f.touchpoint}] ${n1(f.fail_rate_pct)}% (was ${n1(f.prev_pct)}%), owner ${f.owner}`).join('; ') + '.');
     const c = d.complaints || {};
     L.push(`Complaints this quarter ${c.total} (previous ${c.prev_total}); repeat contacts ${n1(c.repeat_contact_pct)}%.`);
     if (c.by_channel) L.push('Complaints by channel: ' + c.by_channel.map((x) => `${x.channel} ${x.complaints} (was ${x.prev})`).join('; ') + '.');
@@ -281,15 +281,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const cur = cs.filter((c) => c.quarter === qc);
     const words = String(q).toLowerCase().match(/[a-z]{4,}/g) || [];
     const score = (t) => words.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0);
-    let pick = cur.map((c) => ({ c, s: score((c.category + ' ' + c.comment + ' ' + c.city + ' ' + c.tp).toLowerCase()) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 6).map((x) => x.c);
+    let pick = cur.map((c) => ({ c, s: score((c.category + ' ' + c.comment + ' ' + c.city + ' ' + c.tp).toLowerCase()) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 4).map((x) => x.c);
     if (pick.length < 3) {
       const byCat = {}; cur.forEach((c) => { (byCat[c.category] = byCat[c.category] || []).push(c); });
-      pick = pick.concat(Object.values(byCat).sort((a, b) => b.length - a.length).slice(0, 3).map((a) => a[0])).slice(0, 6);
+      pick = pick.concat(Object.values(byCat).sort((a, b) => b.length - a.length).slice(0, 3).map((a) => a[0])).slice(0, 4);
     }
-    const out = ['Sample complaint comments:'].concat(pick.map((c) => `- [${c.category}, ${c.tp}, ${c.city}] "${String(c.comment).slice(0, 220)}"`));
+    const out = ['Sample complaint comments:'].concat(pick.map((c) => `- [${c.category}, ${c.tp}, ${c.city}] "${String(c.comment).slice(0, 160)}"`));
     const rs = [...new Set(shops.map((s) => s.round))].sort(); const rc = rs[rs.length - 1];
-    const sh = shops.filter((s) => s.round === rc && s.brand === 'Telenor' && s.verbatim).map((s) => ({ s, k: score((s.verbatim + ' ' + s.city + ' ' + s.tp).toLowerCase()) })).filter((x) => x.k > 0).sort((a, b) => b.k - a.k || a.s.overall - b.s.overall).slice(0, 3);
-    if (sh.length) { out.push('Sample mystery shopper comments:'); sh.forEach(({ s }) => out.push(`- [${s.touchpoint}, ${s.city}, score ${s.overall}] "${String(s.verbatim).slice(0, 220)}"`)); }
+    const sh = shops.filter((s) => s.round === rc && s.brand === 'Telenor' && s.verbatim).map((s) => ({ s, k: score((s.verbatim + ' ' + s.city + ' ' + s.tp).toLowerCase()) })).filter((x) => x.k > 0).sort((a, b) => b.k - a.k || a.s.overall - b.s.overall).slice(0, 2);
+    if (sh.length) { out.push('Sample mystery shopper comments:'); sh.forEach(({ s }) => out.push(`- [${s.touchpoint}, ${s.city}, score ${s.overall}] "${String(s.verbatim).slice(0, 160)}"`)); }
     return out.join('\n');
   }
 
@@ -301,22 +301,23 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const i = lead.indexOf('{'); try { data = compact(JSON.parse(lead.slice(i))); } catch (e) { data = lead.slice(i, i + 6000); }
     const turns = messages.slice(1).filter((m) => typeof m.content === 'string').slice(-5);
     const lastQ = (turns.filter((m) => m.role === 'user').pop() || {}).content || '';
-    const sys = 'You are the insights analyst for MergeCo (Telenor Pakistan). Answer managers\' questions using ONLY the data below. Never invent numbers; if the data does not cover something, say so. Lead with a one-sentence answer, then at most 5 short bullets with numbers. Under 180 words. Plain English.\n\nDATA\n' + data + '\n\n' + comments(lastQ);
+    const sys = 'You are the insights analyst for MergeCo (Telenor Pakistan). Answer managers\' questions using ONLY the data below. Never invent numbers; if the data does not cover something, say so. Lead with a one-sentence answer, then at most 5 short bullets with numbers. Under 150 words. Plain English.\n\nDATA\n' + data + '\n\n' + comments(lastQ);
     let eng;
     try { eng = await getEngine(); } catch (e) { console.error(e); throw fail(/memory|device|adapter|gpu/i.test(String(e && e.message)) ? 'gpu_failed' : 'local_load_failed'); }
-    say('Thinking…');
+    const t0 = Date.now(); let got = false;
+    const tick = setInterval(() => { if (!got) say('Thinking… ' + Math.round((Date.now() - t0) / 1000) + ' s'); }, 1000);
     const onAbort = () => { try { eng.interruptGenerate(); } catch (e) { /* ignore */ } };
     if (opts.signal) opts.signal.addEventListener('abort', onAbort, { once: true });
     let text = '';
     try {
-      const stream = await eng.chat.completions.create({ messages: [{ role: 'system', content: sys }, ...turns], stream: true, temperature: 0.3, max_tokens: 600 });
+      const stream = await eng.chat.completions.create({ messages: [{ role: 'system', content: sys }, ...turns], stream: true, temperature: 0.3, max_tokens: 350 });
       for await (const c of stream) {
         const d = c.choices && c.choices[0] && c.choices[0].delta && c.choices[0].delta.content;
-        if (d) { text += d; if (opts.onText) opts.onText({ text }); }
+        if (d) { if (!got) { got = true; say('Writing…'); } text += d; if (opts.onText) opts.onText({ text }); }
         if (opts.signal && opts.signal.aborted) break;
       }
     } catch (e) { console.error(e); if (opts.signal && opts.signal.aborted) throw fail('cancelled', text || undefined); throw fail('gpu_failed', text || undefined); }
-    finally { if (opts.signal) opts.signal.removeEventListener('abort', onAbort); say(''); }
+    finally { clearInterval(tick); if (opts.signal) opts.signal.removeEventListener('abort', onAbort); say(''); }
     if (opts.signal && opts.signal.aborted) throw fail('cancelled', text || undefined);
     if (!text) throw fail('empty_completion');
     return { text };
@@ -332,6 +333,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       return remote || localSample;
     };
   }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.ms-tab[data-tab="ai"]');
+    if (b && consented() && !engine) gpuOK().then((ok) => { if (ok) getEngine().catch(() => {}); });
+  });
   window.PULSE_LOCAL_AI = {
     hasGPU, gpuOK, consented,
     enable: async () => { if (!(await gpuOK())) throw fail('no_gpu'); try { localStorage.setItem(OK_KEY, '1'); } catch (e) { /* ignore */ } await getEngine(); },
@@ -1102,7 +1107,7 @@ new MutationObserver((list) => {
             <div class="ai-cats" id="ai-cats"></div>
             <p class="ms-note" style="margin:0 !important">Click a category to ask what's driving it.</p>
           </div>
-          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:6px 0 4px"><b>Free, no key:</b> run a small AI model inside this browser. One-time download of about 1.8 GB, then it works offline. Your data never leaves this device. Needs Chrome or Edge on a laptop; answers are simpler than Claude's.</p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="up-go" id="ai-local" type="button">Turn on free AI</button><span class="ms-note" id="ai-local-progress"></span></div><p style="margin:12px 0 6px"><b>Or, with an Anthropic API key</b> (better answers; questions and a data summary go to Anthropic; key stays in this browser):</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="ms-btn" type="submit">Save key</button></form></div>
+          <div id="ai-unavail" class="ai-unavail" hidden><b>Turn on Ask AI</b><p style="margin:6px 0 4px"><b>Free, no key:</b> run a small AI model inside this browser. One-time download of about 1 GB, then it works offline. Your data never leaves this device. Needs Chrome or Edge on a laptop; answers are simpler than Claude's.</p><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="up-go" id="ai-local" type="button">Turn on free AI</button><span class="ms-note" id="ai-local-progress"></span></div><p style="margin:12px 0 6px"><b>Or, with an Anthropic API key</b> (better answers; questions and a data summary go to Anthropic; key stays in this browser):</p><form id="ai-keyform" class="ai-form"><label for="ai-key" class="sr">API key</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-…" style="font:inherit;color:inherit;background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:8px 10px"><button class="ms-btn" type="submit">Save key</button></form></div>
           <div class="ai-chat" id="ai-chat" aria-live="polite">
             <div class="ai-msg a"><p>Hi. I can read every mystery shop, complaint, store, agent and competitor result loaded in this app. Start with the pulse, or ask your own question.</p></div>
           </div>
