@@ -936,11 +936,15 @@ new MutationObserver((list) => {
             </div>
             <div class="ms-map" data-draw="map" data-source="locs cities"></div>
             <div class="ms-legend" style="margin-top: var(--cds-gap-sm)">
-              <span><span class="ms-dot b-ok"></span>On target, <span data-draw="k" data-k="target">—</span>+</span>
-              <span><span class="ms-dot b-warn"></span>Watch, <span data-draw="k" data-k="watch">—</span>–<span data-draw="k" data-k="targetLess">—</span></span>
-              <span><span class="ms-dot b-bad"></span>Act now, below <span data-draw="k" data-k="watch">—</span></span>
-              <label class="ms-row" style="gap: 6px; cursor: pointer"><input type="checkbox" class="ms-comp"> <span class="ms-sq"></span> Show competitor benchmark sites</label>
+              <span class="lg-score"><span class="ms-dot b-ok"></span>On target, <span data-draw="k" data-k="target">—</span>+</span>
+              <span class="lg-score"><span class="ms-dot b-warn"></span>Watch, <span data-draw="k" data-k="watch">—</span>–<span data-draw="k" data-k="targetLess">—</span></span>
+              <span class="lg-score"><span class="ms-dot b-bad"></span>Act now, below <span data-draw="k" data-k="watch">—</span></span>
+              <span class="lg-comp" hidden><span class="ms-dot b-ok"></span>We beat the best competitor</span>
+              <span class="lg-comp" hidden><span class="ms-dot b-warn"></span>Behind by up to 5 pts</span>
+              <span class="lg-comp" hidden><span class="ms-dot b-bad"></span>Behind by more than 5 pts</span>
+              <label class="ms-row" style="gap: 6px; cursor: pointer; color: var(--color-fg)"><input type="checkbox" class="ms-comp"> Compare with competitors</label>
             </div>
+            <p class="ms-note lg-comp" hidden style="margin-top: 6px !important">Each city's number is our store score minus the best competitor's (−24 means 24 points behind). Both come from the same new-connection enquiry visit, the only scenario shoppers can run at rival stores. Hover a city for all three scores.</p>
           </div>
           <div class="ms-card" id="store-panel">
             <div class="ms-panel" data-draw="locpanel" data-source="locs store_ai">—</div>
@@ -1963,10 +1967,10 @@ dash.calc('convergence', {
   }
   function restyle(made) {
     const k = made.k || 1;
-    made.layer.selectAll('circle.st').attr('r', (d) => ((d.sel ? 6.5 : 4.5) / Math.sqrt(k)) * (k > 4 ? 1.6 : 1)).attr('stroke-width', (d) => (d.sel ? 2.5 : 1) / k);
+    made.layer.selectAll('circle.st').attr('r', (d) => ((d.sel ? 6.5 : 4.5) * (k > 4 ? 1.4 : 1)) / k).attr('stroke-width', (d) => (d.sel ? 2.5 : 1) / k);
     made.layer.selectAll('rect.cp').attr('width', 7 / k).attr('height', 7 / k).attr('x', (d) => d.x - 3.5 / k).attr('y', (d) => d.y - 3.5 / k).attr('stroke-width', 1.5 / k);
-    made.layer.selectAll('circle.ct').attr('r', (d) => d.r / Math.sqrt(k)).attr('stroke-width', 1.5 / k);
-    made.layer.selectAll('text.lb').attr('font-size', 11 / k).attr('x', (d) => d.x + d.r / Math.sqrt(k) + 4 / k).attr('y', (d) => d.y + (d.ly - d.y) / k).attr('dy', 4 / k);
+    made.layer.selectAll('circle.ct').attr('r', (d) => d.r / k).attr('stroke-width', 1.5 / k);
+    made.layer.selectAll('text.lb').attr('font-size', 11 / k).attr('x', (d) => d.x + d.r / k + 4 / k).attr('y', (d) => d.y + (d.ly - d.y) / k).attr('dy', 4 / k);
     made.labels.selectAll('text').attr('font-size', 11 / k);
   }
   function showTip(made, ev, lines) {
@@ -2010,6 +2014,34 @@ dash.calc('convergence', {
       const stores = L.filter((l) => l.round === round && l.brand === 'Telenor').map((l) => { const [x, y] = made.proj([l.lon, l.lat]); return { ...l, x, y, sel: l.loc_id === p.loc }; });
       const comps = p.comp ? L.filter((l) => l.round === round && l.brand !== 'Telenor').map((l) => { const [x, y] = made.proj([l.lon, l.lat]); return { ...l, x, y }; }) : [];
       const layer = made.layer; layer.selectAll('*').remove();
+      const card = el.closest('.ms-card');
+      if (card) { card.querySelectorAll('.lg-score').forEach((e) => { e.hidden = !!p.comp; }); card.querySelectorAll('.lg-comp').forEach((e) => { e.hidden = !p.comp; }); }
+      if (p.comp) {
+        const SH = ok('shops') || [], agg = {};
+        SH.forEach((s) => { if (s.round !== round || s.tp !== 'franchise' || s.scenario_id !== 'enquiry' || s.overall == null) return; const a = (agg[s.city] = agg[s.city] || {}); (a[s.brand] = a[s.brand] || []).push(s.overall); });
+        const avg = (a) => (a && a.length ? d3.mean(a) : null);
+        const cs = C.filter((c) => c.round === round && agg[c.city]).map((c) => {
+          const a = agg[c.city], us = avg(a.Telenor), ca = avg(a['Competitor A']), cb = avg(a['Competitor B']);
+          const best = Math.max(ca ?? -1, cb ?? -1), bestName = (ca ?? -1) >= (cb ?? -1) ? 'Competitor A' : 'Competitor B';
+          const [x, y] = made.proj([c.lon, c.lat]);
+          return { ...c, x, y, r: 11, us, ca, cb, bestName, gap: us != null && best >= 0 ? us - best : null, n: (a.Telenor || []).length };
+        }).filter((d) => d.gap !== null);
+        const gcol = (g) => (g >= 0 ? 'var(--color-ok)' : g >= -5 ? 'var(--color-warn)' : 'var(--color-bad)');
+        layer.selectAll('circle.ct').data(cs).join('circle').attr('class', 'ct').attr('cx', (d) => d.x).attr('cy', (d) => d.y)
+          .style('fill', (d) => gcol(d.gap)).style('fill-opacity', (d) => (inReg(d) ? .85 : .15)).style('stroke', 'var(--color-bg)')
+          .on('pointerenter pointermove', (ev, d) => showTip(made, ev, [`${d.city} · same enquiry visit`, `Us ${f1(d.us)} · Competitor A ${d.ca == null ? '—' : f1(d.ca)} · Competitor B ${d.cb == null ? '—' : f1(d.cb)}`, d.gap >= 0 ? `We lead the best rival by ${f1(d.gap)} pts` : `We trail ${d.bestName} by ${f1(-d.gap)} pts`, `${d.n} of our visits, so read it as a direction`]))
+          .on('pointerleave', () => { made.tip.hidden = true; });
+        const placed = [];
+        cs.slice().sort((a, b) => a.y - b.y).forEach((d) => {
+          let y = d.y; while (placed.some((q) => Math.abs(q.y - y) < 13 && Math.abs(q.x - d.x) < 90)) y += 13;
+          placed.push({ x: d.x, y }); d.ly = y;
+        });
+        layer.selectAll('text.lb').data(cs).join('text').attr('class', 'lb').style('fill', 'var(--color-fg)').style('font-family', 'var(--font-anthropic-sans)').style('pointer-events', 'none')
+          .style('opacity', (d) => (inReg(d) ? 1 : .3)).text((d) => `${d.city} ${Math.abs(d.gap) < 0.5 ? 'level' : (d.gap > 0 ? '+' : '−') + Math.round(Math.abs(d.gap))}`);
+        restyle(made);
+        if (made.view !== p.view) { made.view = p.view; zoomTo(made, p.view, stores); }
+        return;
+      }
       if (p.mode === 'city') {
         const cs = C.filter((c) => c.round === round).map((c) => { const [x, y] = made.proj([c.lon, c.lat]); return { ...c, x, y, r: 7 + Math.sqrt(c.locations) * 2.6 }; });
         layer.selectAll('circle.ct').data(cs).join('circle').attr('class', 'ct').attr('cx', (d) => d.x).attr('cy', (d) => d.y)
