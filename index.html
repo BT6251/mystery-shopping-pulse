@@ -702,6 +702,9 @@ new MutationObserver((list) => {
 .lx-track i { display: block; height: 100%; background: var(--color-bad); border-radius: 3px; }
 .lx-v { text-align: right; font-variant-numeric: tabular-nums; font-weight: var(--cds-font-weight-medium); color: var(--color-bad); }
 @container (max-width: 560px) { .lx-row { grid-template-columns: 22px minmax(0, 1fr) 52px; } .lx-track { display: none; } }
+.wx { display: grid; grid-template-columns: auto auto auto; justify-content: start; gap: 4px 24px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.wx .wx-h { color: var(--color-fg-muted); font-size: 11px; }
+.wx b.bad { color: var(--color-bad); font-weight: var(--cds-font-weight-medium); }
 .gx-split { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--cds-gap-lg); align-items: start; }
 @container (max-width: 880px) { .gx-split { grid-template-columns: minmax(0, 1fr); } }
 .gx-split > * { min-width: 0; }
@@ -827,23 +830,23 @@ new MutationObserver((list) => {
             <span class="ms-kpi-sub" data-draw="kpi" data-k="gapSub">—</span>
           </div>
         </div>
+        <div class="ms-card" id="score-lost">
+          <h2 class="ms-h2">Where the score is lost</h2>
+          <p class="ms-note">Click an issue to see where it sits and what comes with it.</p>
+          <div data-draw="losses" data-source="shops fractures agents">—</div>
+        </div>
         <div class="ms-grid2">
           <div class="ms-card" id="by-touchpoint">
             <h2 class="ms-h2">Score by channel</h2>
-            <p class="ms-note">Mystery shopping score out of 100. The dark tick is last round; the dashed line is the <span data-draw="k" data-k="target">—</span> target.</p>
+            <p class="ms-note">Out of 100. Tick: last round. Dashed: the <span data-draw="k" data-k="target">—</span> target.</p>
             <div class="ms-bars" data-draw="tpbars" data-source="tps">—</div>
           </div>
           <div class="ms-card" id="complaint-pulse">
             <h2 class="ms-h2">What customers complain about</h2>
-            <p class="ms-note">Complaint team's log, this quarter, nationwide. Red change means growing.</p>
+            <p class="ms-note">This quarter's complaint log. Red: growing.</p>
             <div class="ms-bars" data-draw="cpulse" data-source="cthemes">—</div>
             <p class="ms-note" style="margin: var(--cds-gap-md) 0 0 !important"><button class="ms-link" data-goto="ai">Ask AI why these are growing →</button></p>
           </div>
-        </div>
-        <div class="ms-card" id="score-lost">
-          <h2 class="ms-h2">Where the score is lost</h2>
-          <p class="ms-note">The issues that cost the most points this round, from the entered visits. Click one to see where it concentrates and what comes with it.</p>
-          <div data-draw="losses" data-source="shops fractures agents">—</div>
         </div>
       </section>
 
@@ -986,7 +989,7 @@ new MutationObserver((list) => {
         <div class="ms-split">
           <div class="ms-card" id="store-map">
             <h2 class="ms-h2">Store performance map</h2>
-            <p class="ms-note">Every franchise and service centre shopped this round, coloured by score. Drag to pan, Ctrl + scroll to zoom, click a store for its summary and full report.</p>
+            <p class="ms-note">Coloured by score. Click a store for its report; Ctrl + scroll to zoom.</p>
             <div class="ms-maptools">
               <div class="ms-seg" role="group" aria-label="Map layer">
                 <button class="ms-btn" data-mode="loc" aria-pressed="true">Stores</button>
@@ -1018,25 +1021,8 @@ new MutationObserver((list) => {
         </div>
         <div class="ms-card" id="city-gaps">
           <h2 class="ms-h2">Where each city falls short</h2>
-          <p class="ms-note">Each cell is the city's store score on that stage minus the national average. Red means below. Click a cell for the stores and issues behind it.</p>
+          <p class="ms-note">Each city's gap to the national average, by stage. Click a cell for the stores and issues behind it.</p>
           <div data-draw="storeheat" data-source="shops fractures">—</div>
-        </div>
-        <div class="ms-card" id="city-league">
-          <h2 class="ms-h2">City league table</h2>
-          <p class="ms-note">Average store score per city, with change on the previous round and how many stores need action now. Click a city to zoom the map.</p>
-          <div class="ms-tablewrap">
-            <table class="ms-table" data-source="cities" data-row-key="round,city">
-              <thead><tr>
-                <th data-field="city">City</th>
-                <th data-field="region" class="ms-hide-narrow">Region</th>
-                <th data-field="score">Score</th>
-                <th data-field="delta" class="r">vs. last round</th>
-                <th data-field="locations" class="r">Stores</th>
-                <th data-field="red" class="r">Act now</th>
-              </tr></thead>
-              <tbody data-draw="cityrows"></tbody>
-            </table>
-          </div>
         </div>
       </section>
 
@@ -1095,7 +1081,7 @@ new MutationObserver((list) => {
 
         <div class="ms-card" id="team-gaps">
           <h2 class="ms-h2">Where each team falls short</h2>
-          <p class="ms-note">Each cell is the team's score on that stage minus the channel average. Red means below. Click a cell for the agents and issues behind it.</p>
+          <p class="ms-note">Each team's gap to the channel average, by stage. Click a cell for the agents and issues behind it.</p>
           <div data-draw="agentheat" data-source="shops fractures agents">—</div>
         </div>
 
@@ -1103,7 +1089,7 @@ new MutationObserver((list) => {
 
         <div class="ms-card" id="ag-league">
           <h2 class="ms-h2">Agent league</h2>
-          <p class="ms-note">Mystery shopping evaluations each agent handled, next to the complaints they handled for the complaint team. Click an agent for their profile.</p>
+          <p class="ms-note">Lowest first. Click an agent for their profile.</p>
           <div class="ms-tablewrap">
             <table class="ms-table" data-source="agentperf" data-row-key="round,agent_id">
               <thead><tr>
@@ -1112,7 +1098,7 @@ new MutationObserver((list) => {
                 <th data-field="evals" class="r">Evals</th>
                 <th data-field="score">Shopping score</th>
                 <th data-field="delta" class="r">vs. last round</th>
-                <th data-field="top_fail" class="ms-hide-narrow">Most frequent fracture</th>
+                <th data-field="top_fail" class="ms-hide-narrow">Most frequent issue</th>
                 <th data-field="complaints" class="r">Complaints</th>
                 <th data-field="resolved_pct" class="r">Resolved</th>
                 <th data-field="repeat_pct" class="r ms-hide-narrow">Repeat</th>
@@ -1125,35 +1111,13 @@ new MutationObserver((list) => {
 
       <!-- COMPETITION -->
       <section class="ms-page" id="competition" role="tabpanel" hidden>
-        <div class="ms-card" id="cx-matrix">
-          <h2 class="ms-h2">Us vs competitors, every channel</h2>
-          <p class="ms-note">Like-for-like enquiry scenario, since service scenarios can't be run at competitor centres. Competitors are anonymised. Click a touchpoint to compare it in depth.</p>
-          <div class="ms-tablewrap" data-draw="cxmatrix" data-source="compx">—</div>
-        </div>
         <div class="ms-card" id="cx-gap">
           <div class="ms-row" style="justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px">
             <h2 class="ms-h2">Where we're lacking</h2>
             <div class="ms-tabs2" role="group" aria-label="Compare by"><button type="button" data-gview="stage">By journey stage</button><button type="button" data-gview="city">By city</button></div>
           </div>
-          <p class="ms-note">Each cell is our score minus the best competitor's, from the same new-connection enquiry visit (the only scenario shoppers can run at rival stores). Red means we're behind. Click a cell to see which issues cause the gap.</p>
+          <p class="ms-note">Our score minus the best rival's, on the same new-connection enquiry visit (the only scenario shoppers can run at rival stores). Click a cell for the issues behind it.</p>
           <div data-draw="cxgap" data-source="shops fractures">—</div>
-        </div>
-        <div class="ms-card ms-controls">
-          <div class="ms-field">Touchpoint
-            <div class="ms-seg" role="group" aria-label="Touchpoint">
-              <button class="ms-btn" data-ctp="franchise" aria-pressed="true">Franchises</button>
-              <button class="ms-btn" data-ctp="helpline" aria-pressed="false">Helpline</button>
-              <button class="ms-btn" data-ctp="social" aria-pressed="false">Social</button>
-              <button class="ms-btn" data-ctp="webchat" aria-pressed="false">Webchat</button>
-              <button class="ms-btn" data-ctp="email" aria-pressed="false">Email</button>
-            </div>
-          </div>
-          <div class="ms-legend" data-draw="cxlegend">—</div>
-        </div>
-        <div class="ms-card" id="cx-stages">
-          <h2 class="ms-h2">Stage by stage, one channel</h2>
-          <p class="ms-note">All three brands side by side for the channel picked above.</p>
-          <div data-draw="cxstages" data-source="compx">—</div>
         </div>
       </section>
 
@@ -1238,7 +1202,7 @@ new MutationObserver((list) => {
     const p = dash.params();
     return { round: p.round, region: p.region || 'All', channel: p.channel || 'All', loc: p.loc || null, shop: p.shop || null, mode: p.mode || 'loc',
       view: p.view || 'pk', comp: !!p.comp, q: p.q || '', ff: p.ff || '', dim: p.dim || 'Region', metric: p.metric || 'score', seg: p.seg || null,
-      aitab: p.aitab || 'take', sort: p.sort || 'asc', ech: p.ech || 'helpline', mix: Number(p.mix ?? 75), n: Number(p.n ?? 4), atp: p.atp || 'helpline', amin: Number(p.amin ?? 3), asort: p.asort || 'low', agent: p.agent || null, ctp: p.ctp || 'franchise', gview: p.gview === 'city' ? 'city' : 'stage', gcell: p.gcell || null, lsel: p.lsel || null, sheat: p.sheat || null, aheat: p.aheat || null };
+      aitab: p.aitab || 'take', sort: p.sort || 'asc', ech: p.ech || 'helpline', mix: Number(p.mix ?? 75), n: Number(p.n ?? 4), atp: p.atp || 'helpline', amin: Number(p.amin ?? 3), asort: p.asort || 'low', agent: p.agent || null, agall: p.agall ? 1 : 0, ctp: p.ctp || 'franchise', gview: p.gview === 'city' ? 'city' : 'stage', gcell: p.gcell || null, lsel: p.lsel || null, sheat: p.sheat || null, aheat: p.aheat || null };
   };
   function rounds() { const k = ok('kpi'); return k ? [...new Set(k.map((r) => r.round))].sort() : []; }
   function curRound() { const rs = rounds(); const p = P(); return rs.includes(p.round) ? p.round : rs[rs.length - 1]; }
@@ -1269,7 +1233,14 @@ new MutationObserver((list) => {
   const pairs = (s) => String(s || '').split('||').filter(Boolean).map((x) => x.split('::'));
   const list = (s) => String(s || '').split('||').filter(Boolean);
   const spark = () => { const s = sv('svg', { viewBox: '0 0 24 24', class: 'ms-spark', 'aria-hidden': 'true' }); s.append(sv('path', { d: 'M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6z', fill: 'currentColor' })); s.append(sv('path', { d: 'M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z', fill: 'currentColor', opacity: '.6' })); return s; };
-  window.MS = { K, KTEXT, BANDW, ok, band, bandVar, f1, sgn, dcls, h, mk, W, P, rounds, curRound, prevRound, none, bar, sv, ring, pairs, list, spark };
+  function simpleKey(extra) {
+    const k = h('div', 'gx-key');
+    const sw = (c, pct, l) => { const s = h('span'); const i = h('i'); i.style.background = `color-mix(in srgb, ${c} ${pct}%, transparent)`; s.append(i, document.createTextNode(l)); return s; };
+    const ramp = h('span'); [16, 30, 46, 60].forEach((x) => { const i = h('i'); i.style.background = `color-mix(in srgb, var(--color-bad) ${x}%, transparent)`; i.style.marginRight = '1px'; ramp.append(i); }); ramp.append(document.createTextNode(' below'));
+    k.append(ramp, sw('var(--color-ok)', 34, 'above'), h('span', null, 'Faded: under 8 visits.' + (extra ? ' ' + extra : '')));
+    return k;
+  }
+  window.MS = { simpleKey, K, KTEXT, BANDW, ok, band, bandVar, f1, sgn, dcls, h, mk, W, P, rounds, curRound, prevRound, none, bar, sv, ring, pairs, list, spark };
 })();
 </script>
 <script>
@@ -2722,7 +2693,7 @@ dash.calc('convergence', {
 </script>
 <script>
 (() => {
-  const { K, ok, band, bandVar, BANDW, f1, sgn, dcls, h, mk, W, P, curRound, prevRound, none, bar, sv, ring } = window.MS;
+  const { K, ok, band, bandVar, BANDW, f1, sgn, dcls, h, mk, W, P, curRound, prevRound, none, bar, sv, ring, simpleKey } = window.MS;
   const fmt = d3.format(',');
   const go = (id, params) => window.MS.go(id, params);
   const BRANDS = ['Telenor', 'Competitor A', 'Competitor B'];
@@ -2748,12 +2719,10 @@ dash.calc('convergence', {
     const cn = rows.reduce((t, a) => t + a.complaints, 0);
     const res = cn ? rows.reduce((t, a) => t + (a.resolved_pct || 0) * a.complaints, 0) / cn : null;
     const tile = (label, val, sub, cls) => { const c = h('div', 'ms-card ms-kpi'); c.append(h('span', 'ms-kpi-label', label), h('span', 'ms-kpi-val' + (cls ? ' ' + cls : ''), val), h('span', 'ms-kpi-sub', sub)); el.append(c); };
-    tile(p.atp === 'franchise' ? 'Store reps evaluated' : 'Agents evaluated', fmt(ev.length), `with ${p.amin}+ mystery shopping evaluations this round`);
-    tile('Median agent score', ev.length ? f1(q(ev, .5)) : '—', 'half the agents score below this', ev.length ? 'b-' + band(q(ev, .5)) : '');
-    tile('Spread (best 10% vs worst 10%)', ev.length ? f1(q(ev, .9) - q(ev, .1)) + ' pts' : '—', ev.length ? `${f1(q(ev, .1))} to ${f1(q(ev, .9))}` : '');
+    tile(p.atp === 'franchise' ? 'Store reps evaluated' : 'Agents evaluated', fmt(ev.length), `${p.amin}+ evaluations this round`);
+    tile('Median score', ev.length ? f1(q(ev, .5)) : '—', `best 10% ${ev.length ? f1(q(ev, .9)) : '—'}, worst 10% ${ev.length ? f1(q(ev, .1)) : '—'}`, ev.length ? 'b-' + band(q(ev, .5)) : '');
     const below = ev.filter((s) => s < K.watch).length;
-    tile('Need coaching now', fmt(below), `averaging below ${K.watch}`, below ? 'b-bad' : '');
-    tile('Complaints handled', fmt(cn), res === null ? '' : `${f1(res)}% resolved`);
+    tile(`Below ${K.watch}`, fmt(below), ev.length ? `of ${fmt(ev.length)} agents` : '', below ? 'b-bad' : '');
   });
 
   dash.draw('agspread', (el) => {
@@ -2804,7 +2773,8 @@ dash.calc('convergence', {
     const p = P(); const fx = fxMap();
     const r = rows.filter((a) => a.evals >= p.amin);
     r.sort((a, b) => (p.asort === 'high' ? b.score - a.score : p.asort === 'complaints' ? b.complaints - a.complaints : a.score - b.score));
-    r.slice(0, 80).forEach((a) => {
+    const lim = p.agall ? 400 : 10;
+    r.slice(0, lim).forEach((a) => {
       const tr = h('tr', 'is-click'); tr.dataset.key = [a.round, a.agent_id].map(encodeURIComponent).join(',');
       if (a.agent_id === p.agent) tr.style.outline = '2px solid var(--ms-accent)';
       const ib = h('div', 'ms-inbar'); ib.append(bar(a.score, a.prev_score, bandVar(a.score)), h('span', 'ms-num', f1(a.score)));
@@ -2814,6 +2784,7 @@ dash.calc('convergence', {
       tr.addEventListener('click', () => { dash.setParams({ agent: a.agent_id }); const pr = document.getElementById('ag-profile'); if (pr) pr.scrollIntoView({ block: 'nearest' }); });
       tb.append(tr);
     });
+    if (r.length > 10) { const tr = h('tr'); const c = h('td'); c.colSpan = 9; const b = h('button', 'ms-link', p.agall ? 'Show the lowest 10 only' : `Show all ${r.length} agents`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ agall: p.agall ? null : 1 })); c.append(b); tr.append(c); tb.append(tr); }
     if (!r.length) { const tr = h('tr'); const c = td(`No agents with ${p.amin}+ evaluations here; lower the minimum.`); c.colSpan = 9; tr.append(c); tb.append(tr); }
   });
 
@@ -3046,7 +3017,7 @@ dash.calc('convergence', {
     const pick = (c) => dash.setParams({ gcell: idOf(c) });
     // biggest gaps strip
     const chips = h('div', 'gx-chips'); chips.append(h('span', null, ranked.length ? 'Biggest gaps to close:' : `No gap of 2 points or more on ${SOLID}+ visits each this round.`));
-    ranked.slice(0, 4).forEach((c) => { const b = h('button', 'gx-chip'); b.type = 'button'; b.append(document.createTextNode(`${TPL[c.tp]} · ${c.label} `), h('b', null, sgn(c.gap)), document.createTextNode(` vs ${c.best.b}`)); b.addEventListener('click', () => pick(c)); chips.append(b); });
+    ranked.slice(0, 3).forEach((c) => { const b = h('button', 'gx-chip'); b.type = 'button'; b.append(document.createTextNode(`${TPL[c.tp]} · ${c.label} `), h('b', null, sgn(c.gap)), document.createTextNode(` vs ${c.best.b}`)); b.addEventListener('click', () => pick(c)); chips.append(b); });
     el.append(chips);
     // heatmap
     const split = h('div', 'gx-split');
@@ -3062,7 +3033,7 @@ dash.calc('convergence', {
         if (!c) { td.append(h('span', 'gx-na', '·')); }
         else {
           const b = h('button', 'gx-cell' + (sel && idOf(c) === idOf(sel) ? ' is-on' : '')); b.type = 'button'; b.style.background = fill(c.gap);
-          b.append(h('b', null, Math.abs(c.gap) < 0.05 ? '0' : sgn(c.gap)), h('small', null, `vs ${c.best.b.replace('Competitor ', '')} · ${c.nUs}`));
+          b.append(h('b', null, Math.abs(c.gap) < 0.05 ? '0' : sgn(c.gap)));
           if (small(c)) { b.style.opacity = '.55'; b.style.boxShadow = 'inset 0 0 0 1px var(--color-border-line)'; }
           b.title = `${TPL[tp]} · ${r.label}: us ${f1(c.us)} (${c.nUs} visits) vs ${c.best.b} ${f1(c.best.v)} (${c.best.n} visits)${small(c) ? '. Small sample' : ''}`;
           b.setAttribute('aria-label', b.title); b.addEventListener('click', () => pick(c)); td.append(b);
@@ -3072,10 +3043,7 @@ dash.calc('convergence', {
       body.append(tr);
     });
     tb.append(body); wrap.append(tb); left.append(wrap);
-    const key = h('div', 'gx-key');
-    [['var(--color-bad)', 58, 'Behind 10+'], ['var(--color-bad)', 40, 'Behind 5–10'], ['var(--color-bad)', 24, 'Behind 2–5'], ['var(--color-fg)', 5, 'Within 2'], ['var(--color-ok)', 30, 'Ahead 2+']].forEach(([c, pct, l]) => { const s = h('span'); const i = h('i'); i.style.background = `color-mix(in srgb, ${c} ${pct}%, transparent)`; s.append(i, document.createTextNode(l)); key.append(s); });
-    key.append(h('span', null, `Small print: best rival · our visits. Faded: under ${SOLID} visits, read as a direction. ${view === 'city' ? 'Blank: fewer than 3 visits.' : 'Environment: stores only.'}`));
-    left.append(key);
+    left.append(simpleKey(view === 'city' ? 'Blank: too few visits.' : 'Environment: stores only.'));
     split.append(left);
     // detail for the selected cell
     const d = h('div', 'gx-detail');
@@ -3096,8 +3064,8 @@ dash.calc('convergence', {
       const rate = (a, f) => (a.length ? (a.filter((s) => has(s, f)).length / a.length) * 100 : null);
       const us = sel.set.filter((s) => s.brand === 'Telenor'), them = sel.set.filter((s) => s.brand === sel.best.b);
       const fs = F.filter((f) => f.tp === sel.tp && (view === 'city' || sel.key === 'overall' || String(f.stage).toLowerCase() === sel.key));
-      const iss = fs.map((f) => ({ f, u: rate(us, f.id), c: rate(them, f.id) })).filter((x) => x.u !== null && x.c !== null && x.u - x.c >= 5).sort((a, b) => (b.u - b.c) - (a.u - a.c)).slice(0, 4);
-      const sec = h('div'); sec.append(h('p', 'gx-sub', `Issues behind it: how often each happens, us vs ${sel.best.b}`));
+      const iss = fs.map((f) => ({ f, u: rate(us, f.id), c: rate(them, f.id) })).filter((x) => x.u !== null && x.c !== null && x.u - x.c >= 5).sort((a, b) => (b.u - b.c) - (a.u - a.c)).slice(0, 3);
+      const sec = h('div'); sec.append(h('p', 'gx-sub', `Issues behind it`));
       const box = h('div', 'gx-iss');
       if (!iss.length) box.append(h('span', 'ms-kpi-sub', 'No single recorded issue explains this gap; it is spread across visits.'));
       iss.forEach((x) => {
@@ -3125,7 +3093,7 @@ dash.calc('convergence', {
 
 <script>
 (() => {
-  const { ok, f1, sgn, h, mk, W, P, curRound, prevRound, none } = window.MS;
+  const { ok, f1, sgn, h, mk, W, P, curRound, prevRound, none, simpleKey } = window.MS;
   const TPL = { franchise: 'Franchises', helpline: 'Helpline', social: 'Social media', webchat: 'Webchat', email: 'Email' };
   const STG = [['greeting', 'Greeting'], ['probing', 'Probing'], ['resolution', 'Resolution'], ['closure', 'Closure'], ['environment', 'Environment'], ['overall', 'Overall']];
   const SOLID = 8, MIN = 3;
@@ -3139,7 +3107,7 @@ dash.calc('convergence', {
   function heat(el, o) {
     el.replaceChildren();
     const chips = h('div', 'gx-chips'); chips.append(h('span', null, o.ranked.length ? o.chipsLabel : o.chipEmpty));
-    o.ranked.slice(0, 4).forEach((c) => { const b = h('button', 'gx-chip'); b.type = 'button'; b.append(document.createTextNode(o.chipText(c) + ' '), h('b', null, sgn(c.gap))); b.addEventListener('click', () => o.onPick(c)); chips.append(b); });
+    o.ranked.slice(0, 3).forEach((c) => { const b = h('button', 'gx-chip'); b.type = 'button'; b.append(document.createTextNode(o.chipText(c) + ' '), h('b', null, sgn(c.gap))); b.addEventListener('click', () => o.onPick(c)); chips.append(b); });
     el.append(chips);
     const split = h('div', 'gx-split'); const left = h('div'); const wrap = h('div', 'gx-scroll'); const tb = h('table', 'gx-table');
     const hr = h('tr'); hr.append(h('th', 'rl', o.rowsTitle)); o.cols.forEach((c) => hr.append(h('th', null, c.label))); const th = h('thead'); th.append(hr); tb.append(th);
@@ -3151,7 +3119,7 @@ dash.calc('convergence', {
         if (!c) td.append(h('span', 'gx-na', '·'));
         else {
           const b = h('button', 'gx-cell' + (o.sel && o.sel.id === c.id ? ' is-on' : '')); b.type = 'button'; b.style.background = fill(c.gap);
-          b.append(h('b', null, Math.abs(c.gap) < 0.05 ? '0' : sgn(c.gap)), h('small', null, c.sub));
+          b.append(h('b', null, Math.abs(c.gap) < 0.05 ? '0' : sgn(c.gap)));
           if (c.small) { b.style.opacity = '.55'; b.style.boxShadow = 'inset 0 0 0 1px var(--color-border-line)'; }
           b.title = c.title; b.setAttribute('aria-label', c.title); b.addEventListener('click', () => o.onPick(c)); td.append(b);
         }
@@ -3160,9 +3128,7 @@ dash.calc('convergence', {
       body.append(tr);
     });
     tb.append(body); wrap.append(tb); left.append(wrap);
-    const key = h('div', 'gx-key');
-    [['var(--color-bad)', 58, 'Below by 10+'], ['var(--color-bad)', 40, 'Below by 5–10'], ['var(--color-bad)', 24, 'Below by 2–5'], ['var(--color-fg)', 5, 'Within 2'], ['var(--color-ok)', 30, 'Above by 2+']].forEach(([c, pct, l]) => { const s = h('span'); const i = h('i'); i.style.background = `color-mix(in srgb, ${c} ${pct}%, transparent)`; s.append(i, document.createTextNode(l)); key.append(s); });
-    key.append(h('span', null, o.keyNote)); left.append(key); split.append(left);
+    left.append(simpleKey(o.keyNote)); split.append(left);
     const d = h('div', 'gx-detail'); if (o.sel) o.detail(o.sel, d); else d.append(h('p', 'ms-kpi-sub', 'Click a cell to see what sits behind it.'));
     split.append(d); el.append(split);
   }
@@ -3180,7 +3146,7 @@ dash.calc('convergence', {
   function issueGaps(focus, base, F, tp, stage) {
     return F.filter((f) => f.tp === tp && (!stage || stage === 'overall' || String(f.stage).toLowerCase() === stage))
       .map((f) => ({ name: f.fracture, a: rate(focus, f.id), b: rate(base, f.id) })).filter((x) => x.a !== null && x.b !== null && x.a - x.b >= 5)
-      .sort((a, b) => (b.a - b.b) - (a.a - a.b)).slice(0, 4);
+      .sort((a, b) => (b.a - b.b) - (a.a - a.b)).slice(0, 3);
   }
   function lead(text, warn) { const p_ = h('p', 'ms-kpi-sub', text); p_.style.margin = '0'; if (warn) p_.style.color = 'var(--color-warn)'; return p_; }
 
@@ -3206,39 +3172,39 @@ dash.calc('convergence', {
     const list = h('div', 'lx-list'); const max = Math.max(...rows.map((x) => x.lost));
     rows.forEach((x, i) => {
       const b = h('button', 'lx-row' + (x === sel ? ' is-on' : '')); b.type = 'button';
-      const tx = h('span', 'lx-t'); tx.append(h('b', null, x.f.fracture), h('small', null, `${TPL[x.tp]} · in ${f1(x.r)}% of visits${x.pr !== null ? ` (${sgn(x.r - x.pr)} pts on ${prev})` : ''} · ${x.w.length} visits`));
+      const tx = h('span', 'lx-t'); tx.append(h('b', null, x.f.fracture), h('small', null, `${TPL[x.tp]} · ${Math.round(x.r)}% of visits${x.pr !== null ? ` · ${x.r - x.pr >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(x.r - x.pr))} pts on ${prev}` : ''}`));
       const tr_ = h('span', 'lx-track'); const fi = h('i'); fi.style.width = `${(x.lost / max) * 100}%`; tr_.append(fi);
       b.append(h('span', 'lx-n', String(i + 1)), tx, tr_, h('span', 'lx-v', `−${f1(x.lost)}`));
       b.addEventListener('click', () => dash.setParams({ lsel: x.f.id }));
       list.append(b);
     });
-    const note = h('p', 'gx-key'); note.textContent = 'Points lost = how much higher the channel would score without the issue: (score without − score with) × share of visits with it.';
+    const note = h('p', 'gx-key'); note.textContent = 'Points lost: how much higher the channel would score without the issue.';
     const left = h('div'); left.append(list, note); split.append(left);
     const d = h('div', 'gx-detail');
     d.append(h('h3', null, sel.f.fracture));
     d.append(lead(`${TPL[sel.tp]}: costs ${f1(sel.lost)} points. Visits with it score ${f1(sel.sw)}, without it ${f1(sel.so)}.`));
-    const cmp = h('div', 'gx-bars');
     const pct = (a, fn) => (a.length ? (a.filter(fn).length / a.length) * 100 : null);
-    [['Score', sel.sw, sel.so, 100, (v) => f1(v)], ['Rating /5', avg(sel.w, 'rating'), avg(sel.wo, 'rating'), 5, (v) => f1(v)], ['Solved', pct(sel.w, (s) => s.resolved), pct(sel.wo, (s) => s.resolved), 100, (v) => f1(v) + '%']].filter(([l, a, b_]) => !(l === 'Solved' && a === 0 && b_ === 100)).forEach(([l, a, b_, mx, fmt]) => {
-      [[`${l}, with it`, a, 'var(--color-bad)'], [`${l}, without`, b_, 'var(--cds-chart-muted)']].forEach(([lab, v, col]) => { const t_ = h('span', 't'); const i = h('i'); i.style.width = v === null ? '0' : `${(v / mx) * 100}%`; i.style.background = col; t_.append(i); cmp.append(h('span', null, lab), t_, h('span', 'v', v === null ? '—' : fmt(v))); });
-    });
-    d.append(cmp);
+    const wx = h('div', 'wx'); wx.append(h('span'), h('span', 'wx-h', 'With it'), h('span', 'wx-h', 'Without'));
+    [['Score', sel.sw, sel.so, (v) => f1(v)], ['Rating', avg(sel.w, 'rating'), avg(sel.wo, 'rating'), (v) => f1(v) + ' / 5'], ['Solved', pct(sel.w, (s) => s.resolved), pct(sel.wo, (s) => s.resolved), (v) => f1(v) + '%']]
+      .filter(([l, a, b_]) => !(l === 'Solved' && a === 0 && b_ === 100))
+      .forEach(([l, a, b_, fmt]) => wx.append(h('span', null, l), h('b', 'bad', a === null ? '—' : fmt(a)), h('span', null, b_ === null ? '—' : fmt(b_))));
+    d.append(wx);
     // where it concentrates
-    const where = h('div'); where.append(h('p', 'gx-sub', 'Where it concentrates'));
+    const where = h('div'); where.append(h('p', 'gx-sub', 'Where it sits'));
     const AG = Object.fromEntries((ok('agents') || []).map((a) => [a.agent_id, a]));
     const dims = [['City', (s) => s.city], ['Store', (s) => (s.tp === 'franchise' ? s.place : '')], ['Agent', (s) => (s.agent_id ? (AG[s.agent_id] ? AG[s.agent_id].agent : s.agent_id) : '')], ['Scenario', (s) => s.scenario]];
     const chipsW = h('div', 'gx-chips'); let any = false;
     dims.forEach(([lab, fn]) => {
       const g = {}; sel.base.forEach((s) => { const k = fn(s); if (k) (g[k] = g[k] || []).push(s); });
-      Object.entries(g).filter(([, v]) => v.length >= MIN).map(([k, v]) => ({ k, v, r: rate(v, sel.f.id) })).filter((x) => sel.r && x.r / sel.r >= 1.3).sort((a, b) => b.r - a.r || b.v.length - a.v.length).slice(0, 2)
-        .forEach((x) => { any = true; const c = h('span', 'ms-chip is-bad'); c.textContent = `${lab}: ${x.k} · ${f1(x.r)}% of ${x.v.length}`; chipsW.append(c); });
+      Object.entries(g).filter(([, v]) => v.length >= MIN).map(([k, v]) => ({ k, v, r: rate(v, sel.f.id) })).filter((x) => sel.r && x.r / sel.r >= 1.3).sort((a, b) => b.r - a.r || b.v.length - a.v.length).slice(0, 1)
+        .forEach((x) => { if (chipsW.children.length >= 3) return; any = true; const c = h('span', 'ms-chip is-bad'); c.textContent = `${lab}: ${x.k} · ${f1(x.r)}% of ${x.v.length}`; chipsW.append(c); });
     });
     if (!any) chipsW.append(h('span', null, 'Spread evenly: no city, store, agent or scenario stands out.'));
     where.append(chipsW); d.append(where);
     // travels with
     const others = rows.length ? F.filter((f) => f.tp === sel.tp && f.id !== sel.f.id) : [];
-    const tw = others.map((f) => ({ name: f.fracture, a: rate(sel.w, f.id), b: rate(sel.wo, f.id) })).filter((x) => x.a !== null && x.b !== null && x.a >= 30 && x.a - x.b >= 15).sort((a, b) => (b.a - b.b) - (a.a - a.b)).slice(0, 3);
-    if (tw.length) d.append(pairBars('Happens alongside it: share of visits', tw, ['With it', 'Without it']));
+    const tw = others.map((f) => ({ name: f.fracture, a: rate(sel.w, f.id), b: rate(sel.wo, f.id) })).filter((x) => x.a !== null && x.b !== null && x.a >= 30 && x.a - x.b >= 15).sort((a, b) => (b.a - b.b) - (a.a - a.b)).slice(0, 2);
+    if (tw.length) d.append(pairBars('Comes with it', tw, ['With it', 'Without it']));
     const q = quote('In the shopper\'s words', sel.w.filter((s) => s.verbatim).sort((a, b) => a.overall - b.overall)[0], 'Lowest-scoring visit with this issue');
     if (q) { const s0 = sel.w.filter((s) => s.verbatim).sort((a, b) => a.overall - b.overall)[0]; q.querySelector('small').textContent = `Lowest-scoring visit with this issue · ${s0.place} · score ${s0.overall}`; d.append(q); }
     split.append(d); el.append(split);
@@ -3270,19 +3236,19 @@ dash.calc('convergence', {
       rowsTitle: 'City', rows, cols: STG.map(([k, l]) => ({ key: k, label: l })), cells, sel, ranked,
       chipsLabel: 'Biggest gaps to national:', chipEmpty: `No city is 2+ points below national on any stage (${SOLID}+ visits).`,
       chipText: (c) => `${c.city} · ${c.label}`, onPick: (c) => dash.setParams({ sheat: c.id }),
-      keyNote: `Small print: score · visits. Faded: under ${SOLID} visits.`,
+      keyNote: 'Hover a cell for its score and visits.',
       detail: (c, d) => {
         d.append(h('h3', null, `${c.city} · ${c.label}`));
         d.append(lead(`${c.label} scores ${f1(c.value)} here, ${c.gap < 0 ? f1(-c.gap) + ' below' : f1(c.gap) + ' above'} the national ${f1(c.nat)} (${c.n} visits).`));
         if (c.small) d.append(lead('Small sample: read it as a direction, not a result.', true));
         const byStore = {}; c.set.forEach((s) => { if (s.loc_id) (byStore[s.loc_id] = byStore[s.loc_id] || []).push(s); });
-        const st = Object.entries(byStore).map(([loc, v]) => ({ loc, name: v[0].place, n: v.length, v: avg(v, c.k) })).filter((x) => x.v !== null).sort((a, b) => a.v - b.v).slice(0, 4);
+        const st = Object.entries(byStore).map(([loc, v]) => ({ loc, name: v[0].place, n: v.length, v: avg(v, c.k) })).filter((x) => x.v !== null).sort((a, b) => a.v - b.v).slice(0, 3);
         if (st.length) {
-          const sec = h('div'); sec.append(h('p', 'gx-sub', `Stores pulling it down (${c.label.toLowerCase()} score)`));
+          const sec = h('div'); sec.append(h('p', 'gx-sub', `Stores pulling it down`));
           st.forEach((x) => { const b = h('button', 'lx-row'); b.type = 'button'; const tx = h('span', 'lx-t'); tx.append(h('b', null, x.name), h('small', null, `${x.n} visit${x.n === 1 ? '' : 's'} · open the store report`)); b.append(tx, h('span', 'lx-v', f1(x.v))); b.style.gridTemplateColumns = 'minmax(0,1fr) auto'; b.addEventListener('click', () => window.MS.go('drill', { loc: x.loc })); sec.append(b); });
           d.append(sec);
         }
-        d.append(pairBars(`Issues behind it: how often, ${c.city} vs national`, issueGaps(c.set, all, F, 'franchise', c.k), [c.city, 'National']));
+        d.append(pairBars(`Issues behind it`, issueGaps(c.set, all, F, 'franchise', c.k), [c.city, 'National']));
         const s0 = c.set.filter((s) => s.verbatim).sort((a, b) => (a[c.k] ?? a.overall) - (b[c.k] ?? b.overall))[0];
         const q = quote('In the shopper\'s words', s0, s0 ? `Lowest ${c.label.toLowerCase()} score in ${c.city} (${s0[c.k] ?? s0.overall}) · ${s0.place}` : ''); if (q) d.append(q);
       },
@@ -3317,19 +3283,19 @@ dash.calc('convergence', {
       rowsTitle: 'Team', rows, cols: stg.map(([k, l]) => ({ key: k, label: l })), cells, sel, ranked,
       chipsLabel: `Biggest gaps to the ${TPL[tp].toLowerCase()} average:`, chipEmpty: `No team is 2+ points below the ${TPL[tp].toLowerCase()} average on any stage (${SOLID}+ evaluations).`,
       chipText: (c) => `${c.team} · ${c.label}`, onPick: (c) => dash.setParams({ aheat: c.id }),
-      keyNote: `Compared with the whole ${TPL[tp].toLowerCase()} channel. Small print: score · evaluations. Faded: under ${SOLID}.`,
+      keyNote: 'Hover a cell for its score and evaluations.',
       detail: (c, d) => {
         d.append(h('h3', null, `${c.team} · ${c.label}`));
         d.append(lead(`${c.label} scores ${f1(c.value)} in this team, ${c.gap < 0 ? f1(-c.gap) + ' below' : f1(c.gap) + ' above'} the ${TPL[tp].toLowerCase()} average of ${f1(c.base)} (${c.n} evaluations).`));
         if (c.small) d.append(lead('Small sample: read it as a direction, not a result.', true));
         const byAg = {}; c.set.forEach((s) => { (byAg[s.agent_id] = byAg[s.agent_id] || []).push(s); });
-        const ag = Object.entries(byAg).map(([id, v]) => ({ id, name: AG[id].agent, n: v.length, v: avg(v, c.k) })).filter((x) => x.v !== null && x.n >= 2).sort((a, b) => a.v - b.v).slice(0, 4);
+        const ag = Object.entries(byAg).map(([id, v]) => ({ id, name: AG[id].agent, n: v.length, v: avg(v, c.k) })).filter((x) => x.v !== null && x.n >= 2).sort((a, b) => a.v - b.v).slice(0, 3);
         if (ag.length) {
-          const sec = h('div'); sec.append(h('p', 'gx-sub', `Agents pulling it down (${c.label.toLowerCase()} score, 2+ evaluations)`));
+          const sec = h('div'); sec.append(h('p', 'gx-sub', `Agents pulling it down`));
           ag.forEach((x) => { const b = h('button', 'lx-row'); b.type = 'button'; b.style.gridTemplateColumns = 'minmax(0,1fr) auto'; const tx = h('span', 'lx-t'); tx.append(h('b', null, x.name), h('small', null, `${x.n} evaluations · open profile`)); b.append(tx, h('span', 'lx-v', f1(x.v))); b.addEventListener('click', () => dash.setParams({ agent: x.id })); sec.append(b); });
           d.append(sec);
         }
-        d.append(pairBars(`Issues behind it: how often, this team vs the channel`, issueGaps(c.set, all, F, tp, c.k), ['This team', 'Channel']));
+        d.append(pairBars(`Issues behind it`, issueGaps(c.set, all, F, tp, c.k), ['This team', 'Channel']));
         const s0 = c.set.filter((s) => s.verbatim).sort((a, b) => (a[c.k] ?? a.overall) - (b[c.k] ?? b.overall))[0];
         const q = quote('In the shopper\'s words', s0, s0 ? `Lowest ${c.label.toLowerCase()} score in this team (${s0[c.k] ?? s0.overall}) · ${AG[s0.agent_id] ? AG[s0.agent_id].agent : ''}` : ''); if (q) d.append(q);
       },
